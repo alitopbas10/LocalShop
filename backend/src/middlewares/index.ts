@@ -6,3 +6,4 @@ export * from "@/middlewares/authorize";
 export * from "@/middlewares/authRateLimit";
 export * from "@/middlewares/globalRateLimit";
 export * from "@/middlewares/paymentRateLimit";
+export * from "@/middlewares/sanitizeInput";
