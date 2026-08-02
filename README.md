@@ -176,6 +176,36 @@ access token alır. Bu token, korumalı endpoint'lere yapılan her istekte
   - Auth endpoint'lerinde rate limiting (`express-rate-limit`)
   - Şifre alanında `select: false` — sorgular şifreyi varsayılan olarak getirmez
 
+## Örnek Veri
+
+Geliştirme ortamında hızlıca test edilebilir veri oluşturmak için bir seed script'i bulunur.
+Production'da (`NODE_ENV=production`) çalıştırılamaz, script anında hata verip çıkar.
+
+```bash
+cd backend
+
+# Mevcut kullanıcıları/ürünleri koruyarak seed'ler (idempotent — kullanıcı zaten
+# varsa yeniden oluşturmaz, satıcının zaten ürünü varsa tekrar ürün eklemez)
+npm run seed
+
+# Önce seed kullanıcılarını ve onlara ait ürünleri temizleyip sıfırdan seed'ler
+npm run seed:reset
+```
+
+3 seller ve 2 customer, sellerlara dağıtılmış ~20 gerçekçi yerel üretici ürünü (bal,
+zeytinyağlı sabun, el dokuma kilim, kekik çayı vb.) oluşturur. Birkaç ürün stok testleri
+için `stock: 0`, birkaçı da `isActive: false` olarak işaretlidir.
+
+**Test hesapları** (hepsinde şifre `Test1234`):
+
+| Rol      | E-posta                  |
+| -------- | ------------------------- |
+| seller   | seller1@localshop.dev     |
+| seller   | seller2@localshop.dev     |
+| seller   | seller3@localshop.dev     |
+| customer | customer1@localshop.dev   |
+| customer | customer2@localshop.dev   |
+
 ## API Dokümantasyonu
 
 TODO — Faz 11'de doldurulacak
