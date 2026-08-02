@@ -25,6 +25,25 @@ const envSchema = z.object({
   GLOBAL_RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().default(15),
   GLOBAL_RATE_LIMIT_MAX: z.coerce.number().default(300),
   REQUEST_BODY_LIMIT: z.string().default("10kb"),
+  // Express'in "trust proxy" ayarına çevrilir: "false" -> false, "true" -> true,
+  // sayısal bir string (ör. "1") -> hop sayısı (number). Bu ayar req.ip'nin nereden
+  // okunacağını (dolayısıyla IP tabanlı rate limiting'in güvenilirliğini) belirler —
+  // bkz. app.ts'teki app.set("trust proxy", ...) satırı.
+  TRUST_PROXY: z
+    .string()
+    .default("false")
+    .refine((val) => val === "true" || val === "false" || /^\d+$/.test(val), {
+      message: 'TRUST_PROXY must be "true", "false", or a non-negative integer',
+    })
+    .transform((val): boolean | number => {
+      if (val === "true") {
+        return true;
+      }
+      if (val === "false") {
+        return false;
+      }
+      return Number(val);
+    }),
 });
 
 const parsed = envSchema.safeParse(process.env);

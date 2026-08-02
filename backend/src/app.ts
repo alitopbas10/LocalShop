@@ -23,9 +23,14 @@ import { sendSuccess } from "@/shared";
 
 export const app = express();
 
-// express-rate-limit istemciyi IP ile ayırt eder; proxy arkasında bu ayar olmadan
-// tüm istekler tek IP'den geliyormuş gibi görünür.
-app.set("trust proxy", 1);
+// req.ip'nin (dolayısıyla IP tabanlı rate limiting'in) nereden okunacağını belirler.
+// Uygulama bir reverse proxy arkasındaysa (env.TRUST_PROXY > 0 veya true), Express
+// X-Forwarded-For header'ının PROXY'nin eklediği son N hop'una güvenir. Uygulama
+// DOĞRUDAN dinliyorsa (varsayılan: false) İSTEMCİNİN gönderdiği X-Forwarded-For'a
+// hiç güvenilmez — aksi halde saldırgan her istekte farklı bir X-Forwarded-For
+// göndererek IP tabanlı rate limiting'i (brute force koruması dahil) tamamen
+// atlatabilir. Bu değer production'da gerçek topolojiye göre DOĞRU ayarlanmalıdır.
+app.set("trust proxy", env.TRUST_PROXY);
 // helmet zaten bu başlığı kaldırıyor; açıkça yazmak niyeti belli eder.
 app.disable("x-powered-by");
 
