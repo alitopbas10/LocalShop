@@ -399,6 +399,123 @@ görebilsin diye), ancak `available: false` olduğu için bu tutar `subtotal`'a 
   değil, unique index'e dayanır — iki eşzamanlı istek yarışsa bile ikinci sepet oluşturma
   denemesi veritabanı tarafından reddedilir.
 
+## Sipariş Sistemi
+
+**Akış:** Customer, sepetini `POST /api/orders` ile siparişe çevirir. Sipariş içeriği
+(ürünler, fiyat) hiçbir zaman istemciden alınmaz; sunucu, o anki sepeti okuyup doğrular ve
+siparişi buradan oluşturur. Sipariş birden fazla satıcının ürününü içerebilir — her satıcı
+kendi siparişlerini `/api/seller/orders` altından, yalnızca kendi satırlarını görecek
+şekilde yönetir.
+
+### Endpoint'ler — Müşteri
+
+| Method | Endpoint                  | Açıklama                                                  | Gerekli Rol |
+| ------ | -------------------------- | ------------------------------------------------------------ | ----------- |
+| POST   | `/api/orders`              | Sepetten sipariş oluşturur (body boştur)                      | `customer`  |
+| GET    | `/api/orders`              | Kendi siparişlerini listeler (sayfalama, durum filtresi, sıralama) | `customer`  |
+| GET    | `/api/orders/:id`          | Kendi siparişinin detayını getirir                            | `customer`  |
+| PATCH  | `/api/orders/:id/cancel`   | Siparişi iptal eder, rezerve edilen stoğu iade eder           | `customer`  |
+
+### Endpoint'ler — Satıcı
+
+| Method | Endpoint                                  | Açıklama                                                        | Gerekli Rol |
+| ------ | ------------------------------------------- | -------------------------------------------------------------------- | ----------- |
+| GET    | `/api/seller/orders`                       | Kendisine gelen siparişleri listeler (yalnızca kendi satırları)       | `seller`    |
+| GET    | `/api/seller/orders/:id`                   | Gelen bir siparişin detayını getirir (yalnızca kendi satırları)       | `seller`    |
+| PATCH  | `/api/seller/orders/:id/fulfillment`       | Kendi satırlarının kargo durumunu günceller (`SHIPPED`/`DELIVERED`)   | `seller`    |
+
+### Durum Makinesi
+
+`Order.status`, siparişin ödeme yaşam döngüsünü temsil eder:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_PAYMENT
+    PENDING_PAYMENT --> PAID
+    PENDING_PAYMENT --> PAYMENT_FAILED
+    PENDING_PAYMENT --> CANCELLED
+    PAYMENT_FAILED --> PAID
+    PAYMENT_FAILED --> CANCELLED
+    PAID --> SHIPPED
+    PAID --> CANCELLED
+    SHIPPED --> DELIVERED
+    DELIVERED --> [*]
+    CANCELLED --> [*]
+```
+
+### İki Seviyeli Durum
+
+Sipariş iki bağımsız durum alanı taşır:
+
+- **`Order.status`** — siparişin ödeme yaşam döngüsü (`PENDING_PAYMENT`, `PAID`,
+  `PAYMENT_FAILED`, `SHIPPED`, `DELIVERED`, `CANCELLED`). Tüm satıcılar için ortak, tek bir
+  alandır.
+- **`OrderItem.fulfillmentStatus`** — her sipariş satırının kendi kargo durumu (`PENDING`,
+  `SHIPPED`, `DELIVERED`, `CANCELLED`). Her satıcı yalnızca kendi satırlarının durumunu
+  değiştirebilir.
+
+`Order.status`, satır bazlı `fulfillmentStatus` değerlerinden TÜRETİLİR (bkz. aşağıdaki
+"Çok Satıcılı Sipariş" kararı); tersine bir ilişki yoktur, satır durumları manuel olarak
+`Order.status`'a göre ayarlanmaz.
+
+### Sipariş Oluşturma Akışı
+
+1. **Transaction dışında ön kontrol** — sepet doğrulanır (boş mu, pasif ürün var mı, stok
+   yetersiz mi). Bu kontrol yalnızca kullanıcıya hızlı ve anlaşılır bir hata döner; gerçek
+   garantiyi sağlamaz.
+2. **Transaction başlar:**
+   1. Sepetteki her satır için şart bağlı atomik stok düşümü uygulanır
+      (`stock: { $gte: qty }` → `$inc: { stock: -qty }`).
+   2. Ürünler tek bir sorguda tekrar çekilir; `name` ve `price` sipariş satırına
+      SNAPSHOT olarak kopyalanır.
+   3. Satır toplamları kuruş cinsinden hesaplanır, `totalPrice`'a toplanır.
+   4. Satırlardaki benzersiz satıcı id'leri `sellerIds` dizisine çıkarılır.
+   5. Okunabilir bir `orderNumber` (`LS-YYYYMMDD-XXXXXX`) üretilip sipariş oluşturulur;
+      numara çakışırsa (unique index) en fazla 3 kez yeniden denenir.
+   6. Sepet temizlenir.
+3. Transaction başarıyla kapanırsa oluşan sipariş döner; herhangi bir adım başarısız
+   olursa TÜM adımlar geri alınır (stok, sepet, sipariş kaydı dahil).
+
+### Tasarım Kararları
+
+- **Fiyat snapshot'ı, sepetin canlı fiyat göstermesiyle bilinçli olarak zıttır.** Sepet
+  "şu an bu ürün bu fiyata satılıyor" bilgisini taşır ve her okumada üründen güncel fiyatı
+  çeker; sipariş ise "müşteri bu ürünü şu fiyata satın aldı" bilgisini kalıcı olarak
+  dondurur. Sipariş oluşturulduktan sonra satıcı fiyatı değiştirse (hatta ürünü silse) bile
+  sipariş satırındaki `name`/`price` DEĞİŞMEZ — aksi halde bir müşterinin geçmiş siparişinin
+  tutarı zamanla kayabilirdi.
+- **Atomik stok düşümü, somut bir yarış koşulunu kapatır.** Senaryo: stoğu 1 olan bir ürünü
+  iki müşteri neredeyse aynı anda sipariş etmeye çalışıyor. "Oku → karşılaştır → yaz"
+  deseninde: İstek A stoğu okur (1), yeterli görür; İstek B henüz A yazmadan stoğu okur
+  (hâlâ 1), o da yeterli görür; ikisi de stoğu düşürmeye çalışır. Sonuç: iki sipariş de
+  "başarılı" görünür ama depoda sadece 1 birim vardır — biri fazladan satılmıştır. Şartı
+  (`$gte`) doğrudan sorgunun içine koymak bu pencereyi kapatır: MongoDB tek bir belge
+  üzerindeki güncellemeyi atomik uygular; ilk isteğin update'i stoğu 0'a düşürür, ikinci
+  isteğin update'i artık `stock: { $gte: 1 }` şartını sağlamadığı için `modifiedCount: 0`
+  döner ve uygulama bunu `INSUFFICIENT_STOCK` olarak reddeder.
+- **Çok satıcılı sipariş, tek bir `status` alanının neden yetmediğini gösterir.** Bir
+  siparişte Seller A'nın ürünü kargolanmış, Seller B'ninki henüz kargolanmamış olabilir. Tek
+  bir `Order.status` bu durumu doğru temsil edemez: `SHIPPED` demek B'nin satırını görmezden
+  gelir, `PAID` demek A'nın ilerlemesini kaybeder. Çözüm iki seviyelidir: her satırın kendi
+  `fulfillmentStatus`'ü bağımsız güncellenir, `Order.status` ise bu satırlardan TÜRETİLİR —
+  iptal edilmemiş tüm satırlar `DELIVERED` ise sipariş `DELIVERED`, tümü en az `SHIPPED` ise
+  sipariş `SHIPPED`, aksi halde (kısmi kargo) `Order.status` olduğu gibi (`PAID`) kalır.
+- **`CANCELLED`, case study'nin verdiği durum listesinde yoktu, bilinçli olarak eklendi.**
+  Ödemesi hiç yapılmamış (`PENDING_PAYMENT`) veya başarısız olmuş (`PAYMENT_FAILED`) bir
+  siparişin düşürdüğü stoğu serbest bırakacak bir terminal duruma ihtiyaç vardı; bu terminal
+  durum olmadan böyle bir sipariş sonsuza kadar stok rezerve ediyormuş gibi görünürdü.
+
+### Bilinen Kısıtlar
+
+- **Ödeme yapılmadan terk edilen bir sipariş, düştüğü stoğu süresiz rezerve tutar.**
+  `PENDING_PAYMENT` durumunda kalan bir sipariş için otomatik bir zaman aşımı yoktur.
+  Üretimde bu, siparişe bir `expiresAt` alanı eklenip süresi dolan `PENDING_PAYMENT`
+  siparişlerini `CANCELLED`'a çekip stoğu iade eden arka plan bir işle (cron/queue) çözülür.
+- **Kısmi kargo durumunda `Order.status` `PAID`'te kalır.** Bazı satıcılar kargoladı, bazıları
+  henüz kargolamadıysa üst seviyedeki `status` bunu yansıtmaz; hangi satırın hangi durumda
+  olduğu yalnızca sipariş detayındaki satır bazlı `items[].fulfillmentStatus` alanından
+  görülebilir.
+
 ## Örnek Veri
 
 Geliştirme ortamında hızlıca test edilebilir veri oluşturmak için bir seed script'i bulunur.

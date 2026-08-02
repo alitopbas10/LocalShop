@@ -90,6 +90,25 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 - Para hesapları kuruş cinsine çevrilerek yapılır (Math.round(x * 100), toplama, /100) —
   floating point toplama hatası (0.1 + 0.2 problemi) sepet toplamına yansımasın diye
 
+## Sipariş Kuralları
+- Sipariş içeriği İSTEMCİDEN ALINMAZ, sunucudaki sepetten okunur — istemci ürün listesi
+  veya fiyat gönderebilseydi, istediği fiyata sipariş oluşturabilirdi
+- Sipariş satırlarındaki name ve price alanları SNAPSHOT'tır, ürün sonradan değişse veya
+  silinse bile ASLA güncellenmez — sepet canlı fiyat gösterir, sipariş o anki fiyatı dondurur
+- Stok düşümü şart bağlı atomik güncelleme ile yapılır:
+  `updateOne({ _id, stock: { $gte: qty } }, { $inc: { stock: -qty } })`
+  "Önce oku, karşılaştır, sonra yaz" deseni KULLANILMAZ — iki eşzamanlı istek aynı stoğu
+  okuyup ikisi de yeterli görebilir, ikisi de düşer, sonuç negatif stok olur
+- Stok düşümü, sipariş oluşturma ve sepet temizleme TEK transaction içindedir — biri
+  başarısız olursa hepsi geri alınır
+- withTransaction callback'i geçici hatalarda YENİDEN ÇALIŞTIRILABİLİR; bu yüzden içine
+  idempotent olmayan yan etki (log, e-posta, dış servis çağrısı) KONMAZ
+- Durum geçişleri ORDER_STATUS_TRANSITIONS / FULFILLMENT_TRANSITIONS haritalarından
+  kontrol edilir, if/else zinciriyle değil — yeni bir durum eklenirken tek yere bakmak yeterli olur
+- Satıcı sorgularında diğer satıcıların satırları FİLTRELENİR — bir satıcı başka bir
+  satıcının aynı siparişte ne sattığını göremez
+- Satıcıya alıcının yalnızca adı gösterilir, e-posta veya başka kişisel alan dönülmez
+
 ## Kod Stili
 - TypeScript strict mod, any kullanımı yasak, unknown + type guard tercih edilir
 - Named export tercih edilir (React component'leri hariç)
