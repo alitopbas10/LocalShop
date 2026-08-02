@@ -1,7 +1,15 @@
 import type { QueryFilter } from "mongoose";
 
 import type { CatalogQuery } from "@/modules/product/catalog.schemas";
-import { Product, type IProduct, type ProductDocument } from "@/modules/product/product.model";
+import {
+  toCatalogDetail,
+  toCatalogListItem,
+  type CatalogDetail,
+  type CatalogListItem,
+  type RawCatalogProduct,
+  type RawCatalogProductDetail,
+} from "@/modules/product/product.mapper";
+import { Product, type IProduct } from "@/modules/product/product.model";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/modules/product/product.types";
 import { AppError } from "@/shared/AppError";
 
@@ -25,7 +33,7 @@ function resolveSort(query: CatalogQuery): ResolvedSort {
 }
 
 export interface CatalogListResult {
-  items: ProductDocument[];
+  items: CatalogListItem[];
   total: number;
   page: number;
   limit: number;
@@ -72,7 +80,7 @@ export async function listCatalog(query: CatalogQuery): Promise<CatalogListResul
 
   const skip = (query.page - 1) * query.limit;
 
-  const [items, total] = await Promise.all([
+  const [rawItems, total] = await Promise.all([
     Product.find(filter)
       .select(projection)
       // Sadece "name" seçilir: alan seçimi yapılmazsa satıcının e-posta adresi ve tüm
@@ -80,12 +88,16 @@ export async function listCatalog(query: CatalogQuery): Promise<CatalogListResul
       .populate("sellerId", "name")
       .sort(sortSpec)
       .skip(skip)
-      .limit(query.limit),
+      .limit(query.limit)
+      // .lean() ile Mongoose Document yerine düz nesne alınır (daha az bellek, daha hızlı).
+      // toJSON transform bu yüzden ÇALIŞMAZ (__v response'a düşebilir) ama mapper zaten
+      // alanları açıkça seçtiği için bu bir sorun oluşturmaz.
+      .lean<RawCatalogProduct[]>(),
     Product.countDocuments(filter),
   ]);
 
   return {
-    items,
+    items: rawItems.map(toCatalogListItem),
     total,
     page: query.page,
     limit: query.limit,
@@ -93,15 +105,18 @@ export async function listCatalog(query: CatalogQuery): Promise<CatalogListResul
   };
 }
 
-export async function getCatalogProductById(productId: string): Promise<ProductDocument> {
+export async function getCatalogProductById(productId: string): Promise<CatalogDetail> {
   // isActive:false bir ürün için de 404 dönülür: müşteri açısından o ürün hiç yok, aktif/pasif
   // ayrımını sızdırmanın (ör. 403 dönerek) bir güvenlik ya da UX faydası yok.
-  const product = await Product.findOne({ _id: productId, isActive: true }).populate("sellerId", "name");
-  if (!product) {
+  const rawProduct = await Product.findOne({ _id: productId, isActive: true })
+    .populate("sellerId", "name")
+    .lean<RawCatalogProductDetail>();
+
+  if (!rawProduct) {
     throw AppError.notFound("Product");
   }
 
-  return product;
+  return toCatalogDetail(rawProduct);
 }
 
 export interface CategoryCount {
