@@ -2,6 +2,7 @@ import type { Collection, IndexDescriptionInfo } from "mongodb";
 
 import { connectDatabase, disconnectDatabase } from "@/config/database";
 import { User } from "@/modules/auth/user.model";
+import { Payment } from "@/modules/payment/payment.model";
 import { Product } from "@/modules/product/product.model";
 
 interface SyncResult {
@@ -79,6 +80,9 @@ async function main(): Promise<void> {
 
   const userResult = await syncAndDiff("User", User);
   printResult(userResult);
+
+  const paymentResult = await syncAndDiff("Payment", Payment);
+  printResult(paymentResult);
 
   const isTurkishTextIndexValid = verifyTurkishTextIndex(productResult.finalIndexes);
 
