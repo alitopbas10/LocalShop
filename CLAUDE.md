@@ -109,6 +109,34 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
   satıcının aynı siparişte ne sattığını göremez
 - Satıcıya alıcının yalnızca adı gösterilir, e-posta veya başka kişisel alan dönülmez
 
+## Ödeme Kuralları
+- Ödeme tutarı İSTEMCİDEN ALINMAZ, siparişten (order.totalPrice) okunur — payCardSchema
+  bir amount alanı kabul etmez, .strict() ile bu alanı gönderen istek reddedilir
+- Kart numarası, CVV, son kullanma tarihi HİÇBİR YERE yazılmaz: veritabanı, log, konsol,
+  hata mesajı — hiçbiri. Payment şemasında bu alanlar için hiç yer yoktur, dolayısıyla
+  "yanlışlıkla loglama" ihtimali de yapısal olarak kapatılmıştır
+- Yalnızca cardLast4 ve cardBrand saklanır — makbuz gösterimi ve marka ikonu için
+  yeterlidir, bu MVP'de tekrar tahsilat/iade gibi tam kart bilgisine ihtiyaç duyan bir
+  akış yoktur
+- Ödeme sağlayıcı (FakePay) çağrısı transaction DIŞINDA yapılır: transaction boyunca
+  tutulan kilit dış servis yavaşsa veya takılırsa veritabanı kaynaklarını tüketir; ayrıca
+  withTransaction callback'i geçici hatalarda yeniden çalıştırılabilir — dış çağrı
+  transaction içinde olsaydı kart iki kez çekilebilirdi
+- Sipariş durum geçişi (PENDING_PAYMENT/PAYMENT_FAILED → PAID) şartlı atomik güncelleme
+  ile yapılır: `updateOne({ _id, status: { $in: [...] } }, { $set: { status: "PAID" } })`.
+  modifiedCount 0 ise başka bir istek aynı anda ödemeyi tamamlamış demektir, transaction
+  geri alınır
+- Çifte ödeme, kısmi unique index ile veritabanı seviyesinde engellenir:
+  `{ orderId: 1 }` üzerinde `unique` + `partialFilterExpression: { status: "SUCCEEDED" }`.
+  Bir siparişin en fazla bir başarılı ödemesi olabilir; bunu yalnızca uygulama katmanında
+  kontrol etmek yetmez, iki eşzamanlı istek ikisi de "henüz ödenmemiş" görebilir
+- Format doğrulaması Zod şemasında yapılır (kart no 13-19 hane, MM/YY, CVV 3-4 hane);
+  kabul/red kararı (Luhn kontrolü, test kartları) sağlayıcı katmanında (fakePay.provider)
+  verilir — format doğrulaması ile kabul kararı farklı sorumluluklardır, karıştırılmaz
+- Ödeme endpoint'ine sıkı rate limit uygulanır (15 dakikada 20 istek, başarılı denemeler
+  dahil): bu endpoint card testing saldırılarının hedefidir — saldırgan çalıntı kart
+  numaralarından hangisinin geçerli olduğunu art arda deneyerek bulmaya çalışır
+
 ## Kod Stili
 - TypeScript strict mod, any kullanımı yasak, unknown + type guard tercih edilir
 - Named export tercih edilir (React component'leri hariç)

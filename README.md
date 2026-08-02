@@ -516,6 +516,164 @@ Sipariş iki bağımsız durum alanı taşır:
   olduğu yalnızca sipariş detayındaki satır bazlı `items[].fulfillmentStatus` alanından
   görülebilir.
 
+## Ödeme Sistemi (FakePay)
+
+**Akış:** Customer, `PENDING_PAYMENT` veya `PAYMENT_FAILED` durumundaki bir siparişi
+`POST /api/payments/pay` ile öder.
+
+1. Müşteri kart bilgilerini (numara, isim, son kullanma tarihi, CVV) ve ödemek istediği
+   `orderId`'yi gönderir. Ödenecek **tutar** istek gövdesinde yer almaz — sunucu tutarı
+   `orderId`'ye ait siparişten okur.
+2. Sunucu siparişin sahibi olduğunu ve ödemeye uygun bir durumda (`PENDING_PAYMENT` veya
+   `PAYMENT_FAILED`) olduğunu doğrular, kart alanlarının formatını (Zod ile) kontrol eder.
+3. Kart bilgileri, dış bir ödeme sağlayıcısını simüle eden **FakePay** katmanına iletilir.
+   FakePay; test kartlarını, Luhn algoritmasını ve son kullanma tarihini değerlendirip
+   `SUCCEEDED` veya `FAILED` (bir başarısızlık sebebiyle) sonucu üretir — gerçek bir kart
+   ağına hiçbir istek gitmez, tamamen sunucu içinde simüle edilir.
+4. Sonuca göre sipariş durumu ve bir `Payment` kaydı atomik olarak güncellenir: başarılıysa
+   sipariş `PAID` olur; başarısızsa `PAYMENT_FAILED` olur ve müşteri aynı siparişle tekrar
+   deneyebilir.
+
+### Test Kartları
+
+| Kart Numarası          | Sonuç                          |
+| ------------------------ | -------------------------------- |
+| `4242 4242 4242 4242`   | Başarılı (`SUCCEEDED`)          |
+| `4000 0000 0000 0000`   | Başarısız (`FAILED` / `CARD_DECLINED`) |
+
+Bu iki numara dışındaki her kart, Luhn algoritmasına göre değerlendirilir: Luhn'u geçerse
+`CARD_DECLINED`, geçmezse `INVALID_CARD_NUMBER` ile reddedilir. Yani simülasyonda yalnızca
+tanımlı test kartları başarılı sonuç üretir.
+
+### Endpoint'ler
+
+| Method | Endpoint                     | Açıklama                                             | Gerekli Rol |
+| ------ | ----------------------------- | ------------------------------------------------------ | ----------- |
+| POST   | `/api/payments/pay`          | Bir sipariş için ödeme başlatır                        | `customer`  |
+| GET    | `/api/payments/order/:orderId` | O siparişe ait tüm ödeme denemelerini (başarılı + başarısız) listeler | `customer`  |
+
+### Örnek İstek ve Yanıt
+
+```bash
+POST /api/payments/pay
+Authorization: Bearer <token>
+Idempotency-Key: 3f29b1e2-6c41-4e3a-9d3a-9a2d9e6f5b10
+Content-Type: application/json
+
+{
+  "orderId": "665f1a2b3c4d5e6f7a8b9c0d",
+  "cardNumber": "4242424242424242",
+  "cardHolder": "ALI TOPBAS",
+  "expiry": "12/30",
+  "cvv": "123"
+}
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "payment": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c2f",
+      "orderId": "665f1a2b3c4d5e6f7a8b9c0d",
+      "userId": "665f1a2b3c4d5e6f7a8b9a11",
+      "amount": 200,
+      "status": "SUCCEEDED",
+      "cardLast4": "4242",
+      "cardBrand": "VISA",
+      "transactionId": "FP-e99d08ca93c2",
+      "createdAt": "2026-08-02T19:28:37.995Z",
+      "updatedAt": "2026-08-02T19:28:37.995Z"
+    },
+    "order": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+      "orderNumber": "LS-20260802-VBHBA4",
+      "status": "PAID",
+      "totalPrice": 200
+    }
+  }
+}
+```
+
+Yanıtta kart numarası, CVV veya son kullanma tarihi **hiçbir zaman** yer almaz — yalnızca
+`cardLast4` (son 4 hane) ve `cardBrand` (kart markası) döner, çünkü sunucu bunların
+dışındaki kart bilgisini zaten hiç saklamaz.
+
+### Idempotency-Key
+
+`POST /api/payments/pay` isteğine opsiyonel bir `Idempotency-Key` header'ı eklenebilir
+(istemcinin ürettiği herhangi bir benzersiz değer, ör. bir UUID). Aynı anahtarla yapılan
+tekrar bir istek — ağ hatası sonrası otomatik retry, kullanıcının "Öde" butonuna iki kez
+tıklaması gibi senaryolarda — kartı **yeniden çekmez**, ilk denemenin sonucunu olduğu gibi
+döner. Frontend, her ödeme denemesi başlatıldığında yeni bir anahtar üretmeli ve o deneme
+için yapılan tüm retry'larda aynı anahtarı kullanmalıdır.
+
+### Güvenlik Önlemleri
+
+- **Kart verisi saklanmıyor.** `Payment` şemasında `cardNumber`, `cvv` veya `expiry` için
+  hiç alan yoktur; yalnızca `cardLast4` (son 4 hane) ve `cardBrand` (kart markası)
+  tutulur. Bu ikisi, müşteriye "hangi kartla ödediğini" göstermek ve marka ikonunu
+  render etmek için yeterlidir — bu MVP'de tam kart numarasını gerektiren bir iade veya
+  tekrar tahsilat akışı yoktur. FakePay katmanı da kart verisini hiçbir yere (log, konsol,
+  hata mesajı dahil) yazmaz; kart verisi yalnızca istek gövdesinden sağlayıcı fonksiyonuna
+  kadar bellekte yaşar ve orada biter.
+- **Tutar sunucudan okunur.** `payCardSchema` bir `amount` alanı kabul etmez
+  (`.strict()` ile fazladan alan gönderen istek `400` alır); ödenecek tutar her zaman
+  `order.totalPrice`'tan okunur. İstemci tutar gönderebilseydi, istediği tutara "ödeme
+  yaptım" diyebilirdi.
+- **Üç katmanlı çifte ödeme koruması.** Aynı sipariş için iki kez ödeme yapılmasını
+  önlemek üç bağımsız katmanla sağlanır:
+  1. **Kısmi unique index** (`{ orderId: 1 }`, `partialFilterExpression: { status:
+     "SUCCEEDED" }`) — bir siparişin en fazla bir başarılı ödemesi olabileceğini
+     veritabanı seviyesinde garanti eder; bu, iki eşzamanlı isteğin ikisinin de "henüz
+     ödenmemiş" görüp ikisinin de ödeme kaydı oluşturmaya çalıştığı yarış durumuna karşı
+     asıl korumadır.
+  2. **Şartlı atomik durum güncellemesi** (`updateOne` içinde `status: { $in: [...] }`
+     şartı) — sipariş durumunu yalnızca hâlâ ödenmemiş durumdaysa `PAID`'e çevirir;
+     `modifiedCount: 0` dönerse istek "sipariş zaten ödenmiş" hatasıyla reddedilir.
+  3. **Idempotency-Key** — aynı istemci isteğinin ağ hatası veya çift tıklama yüzünden
+     birden fazla kez sunucuya ulaşması durumunda kartın yeniden çekilmesini önler.
+- **Ödeme endpoint'inde rate limiting.** `POST /api/payments/pay`, 15 dakikada 20 istek
+  ile sınırlıdır (başarılı denemeler de sayaca dahildir). Gerekçe: bu endpoint *card
+  testing* saldırılarının klasik hedefidir — saldırgan, çalıntı kart numaralarından
+  hangisinin geçerli olduğunu bulmak için bunları sırayla dener; sıkı bir limit bu
+  saldırı sınıfının pratikte işe yaramasını engeller.
+
+### Tasarım Kararları
+
+- **Luhn kontrolü, format doğrulamasından (Zod) ayrı olarak sağlayıcı katmanında
+  (`fakePay.provider`) yapılır.** Gerekçe: "kart numarası 13-19 haneli bir sayı mı"
+  sorusu bir format sorusudur ve isteğin şekliyle ilgilidir; "bu kart gerçekten kabul
+  edilir mi" sorusu ise bir iş kararıdır ve gerçek bir ödeme sağlayıcısının (ileride
+  FakePay'in yerini alacak) vereceği bir karardır. Bu ayrım önemlidir çünkü case study'nin
+  başarısız ödeme senaryosunu temsil eden `4000000000000000` numarası **Luhn kontrolünden
+  geçmez**. Luhn kontrolü Zod şemasında (yani formattan) yapılsaydı bu kart `400` ile
+  (yanlış format) reddedilirdi; oysa amaç bu kartın *geçerli görünen ama banka tarafından
+  reddedilen* bir kartı simüle etmesidir. Bu yüzden FakePay, test kartlarını Luhn
+  kontrolünden ÖNCE ele alır: önce bilinen test kartlarına bakar, ancak tanımadığı
+  kartlar için Luhn kontrolüne düşer.
+- **FakePay çağrısı transaction dışında yapılır.** Dış bir servis çağrısı (gerçek bir
+  ödeme sağlayıcısında ağ üzerinden, FakePay'de yapay bir gecikmeyle simüle edilir)
+  transaction içine konursa iki sorun doğar: transaction boyunca tutulan veritabanı
+  kilidi, dış servis yavaş veya takılırsa gereksiz yere uzar; ve `withTransaction`
+  geçici bir hatada callback'i baştan yeniden çalıştırabileceği için, çağrı transaction
+  içindeyse kart iki kez çekilebilir. Bu yüzden dış çağrı transaction'ın dışında yapılır,
+  yalnızca sonucun veritabanına yazılması (sipariş durumu + `Payment` kaydı) atomik bir
+  transaction içinde gerçekleşir.
+- **Başarısız bir ödemeden sonra stok rezervasyonu korunur, serbest bırakılmaz.** Sipariş
+  oluşturulurken düşülen stok, ödeme başarısız olduğunda geri iade edilmez; sipariş
+  `PAYMENT_FAILED` durumuna geçer ve müşteri aynı siparişle (aynı rezerve edilmiş ürünlerle)
+  ödemeyi tekrar deneyebilir. Stoğu burada serbest bırakmak, müşteri ikinci denemesini
+  yaparken aynı ürünün başka bir müşteri tarafından satın alınmış olma riskini doğururdu.
+  Müşteri gerçekten vazgeçerse siparişi iptal eder (`PATCH /api/orders/:id/cancel`) — stok
+  yalnızca o akışta serbest bırakılır.
+- **FakePay, gerçek bir ödeme sağlayıcısıyla değiştirilebilecek şekilde tasarlandı.** Tüm
+  modül dışarıya yalnızca iki şey açar: `charge()` fonksiyonu ve `TEST_CARDS` sabiti. Kart
+  isteği/sonuç tipleri (`ChargeRequest`/`ChargeResult`) modül dışına sızmaz — çağıran taraf
+  (`payment.service`) yalnızca bu iki export'a bağımlıdır. İleride gerçek bir sağlayıcıya
+  (ör. Stripe, iyzico) geçilirken tek değişmesi gereken dosya `fakePay.provider.ts`'tir;
+  geri kalan tüm katmanlar (schema, service, controller, route) aynı kalır.
+
 ## Örnek Veri
 
 Geliştirme ortamında hızlıca test edilebilir veri oluşturmak için bir seed script'i bulunur.
