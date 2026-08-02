@@ -7,6 +7,7 @@ import { env, isDev } from "@/config/env";
 import { errorHandler, notFoundHandler } from "@/middlewares";
 import { devRoutes } from "@/modules/_dev/dev.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
+import { catalogRoutes } from "@/modules/product/catalog.routes";
 import { productRoutes } from "@/modules/product/product.routes";
 import { sendSuccess } from "@/shared";
 
@@ -35,7 +36,10 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.use("/api/auth", authRoutes);
 
-// /api/products (Faz 4'te customer'a açık katalog) ile aynı yol kullanılmıyor: aynı yolda
+// Herkese açık katalog: authenticate uygulanmaz.
+app.use("/api/products", catalogRoutes);
+
+// /api/seller/products, herkese açık /api/products katalogundan ayrı bir yoldur: aynı yolda
 // rol bazlı dallanmak hem route mantığını hem yetkilendirmeyi bulanıklaştırır.
 // Ayrı yol = ayrı sorumluluk.
 app.use("/api/seller/products", productRoutes);
