@@ -8,6 +8,8 @@ import { errorHandler, notFoundHandler } from "@/middlewares";
 import { devRoutes } from "@/modules/_dev/dev.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
 import { cartRoutes } from "@/modules/cart/cart.routes";
+import { orderRoutes } from "@/modules/order/order.routes";
+import { sellerOrderRoutes } from "@/modules/order/sellerOrder.routes";
 import { catalogRoutes } from "@/modules/product/catalog.routes";
 import { productRoutes } from "@/modules/product/product.routes";
 import { sendSuccess } from "@/shared";
@@ -46,6 +48,12 @@ app.use("/api/products", catalogRoutes);
 app.use("/api/seller/products", productRoutes);
 
 app.use("/api/cart", cartRoutes);
+
+app.use("/api/orders", orderRoutes);
+
+// /api/seller/orders, herkese açık /api/orders'tan ayrı bir yoldur: satıcı burada
+// kendisine gelen siparişleri görür, kendi sipariş geçmişini değil.
+app.use("/api/seller/orders", sellerOrderRoutes);
 
 // Faz 1 doğrulama route'ları — sadece development'ta mount edilir, prod'da hiç erişilemez
 if (isDev) {

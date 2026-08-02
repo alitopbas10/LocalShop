@@ -389,7 +389,7 @@ export interface SellerOrderView {
 // GÖREMEMELİDİR. Bu yüzden satırlar önce bu satıcıya ait olanlara filtrelenir; hem
 // dönen "items" listesi hem de "sellerSubtotal"/"itemCount" hesapları SADECE bu
 // satıcının satırlarını kapsar.
-function toSellerOrderView(order: SellerOrderSource, sellerId: string): SellerOrderView {
+export function toSellerOrderView(order: SellerOrderSource, sellerId: string): SellerOrderView {
   const ownItems = order.items.filter((item) => item.sellerId.toString() === sellerId);
 
   let subtotalCents = 0;
