@@ -7,6 +7,7 @@ import { env, isDev } from "@/config/env";
 import { errorHandler, notFoundHandler } from "@/middlewares";
 import { devRoutes } from "@/modules/_dev/dev.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
+import { cartRoutes } from "@/modules/cart/cart.routes";
 import { catalogRoutes } from "@/modules/product/catalog.routes";
 import { productRoutes } from "@/modules/product/product.routes";
 import { sendSuccess } from "@/shared";
@@ -43,6 +44,8 @@ app.use("/api/products", catalogRoutes);
 // rol bazlı dallanmak hem route mantığını hem yetkilendirmeyi bulanıklaştırır.
 // Ayrı yol = ayrı sorumluluk.
 app.use("/api/seller/products", productRoutes);
+
+app.use("/api/cart", cartRoutes);
 
 // Faz 1 doğrulama route'ları — sadece development'ta mount edilir, prod'da hiç erişilemez
 if (isDev) {
