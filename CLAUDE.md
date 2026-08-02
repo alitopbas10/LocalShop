@@ -63,6 +63,18 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 - Soft delete kullanılır: isActive: false. Kaynak fiziksel olarak silinmez; gerçek silme
   o kaynağa referans veren diğer kayıtları (sepet, sipariş geçmişi) kırar
 
+## Katalog Kuralları
+- Public katalog sorgularında { isActive: true } filtresi ZORUNLU — bu satır atlanırsa
+  satıcının pasifleştirdiği (soft-delete edilmiş) ürünler müşteriye görünür hale gelir
+- populate kullanırken alan seçimi ZORUNLU — seçim yapılmazsa hassas alanlar (ör. satıcının
+  e-postası) response'a sızar
+- Route sıralaması: sabit yollar (/categories) parametreli yollardan (/:id) ÖNCE tanımlanır;
+  aksi halde Express sabit yolu :id parametresiyle eşleştirir
+- Liste response'ları mapper'dan geçirilir, ham Mongoose belgesi dönülmez — response şekli
+  Mongoose şemasından bağımsızlaşır, frontend tek bir tiple çalışabilir
+- Pagination'da ikincil sıralama olarak _id kullanılır (kararlı sayfalama) — birincil alan
+  (price, createdAt) eşit olan kayıtlarda sayfalar arası kayıt tekrarı/atlaması önlenir
+
 ## Kod Stili
 - TypeScript strict mod, any kullanımı yasak, unknown + type guard tercih edilir
 - Named export tercih edilir (React component'leri hariç)

@@ -203,11 +203,12 @@ her istek, ilgili ürünün gerçekten o seller'a ait olduğunu service katmanı
   gerçekten silinirse, o ürünü içeren sepetler ve geçmiş sipariş kayıtları referans
   bütünlüğünü kaybeder (var olmayan bir ürüne işaret ederler). `isActive: false` ürünü
   yalnızca katalogdan/aramadan gizler, geçmiş veriyi bozmadan.
-- **`/api/seller/products` ve `/api/products` ayrı yollardır.** Faz 4'te customer'a açık
-  katalog `/api/products` olacak. Aynı yolu kullanıp rol bazlı dallanmak (ör. "eğer seller ise
-  kendi ürünlerini, customer ise tüm aktif ürünleri göster") hem route mantığını hem
-  yetkilendirmeyi bulanıklaştırır. Ayrı yol, ayrı sorumluluk anlamına gelir: biri satıcının
-  kendi yönetim ekranı, diğeri herkese açık katalog.
+- **`/api/seller/products` ve `/api/products` ayrı yollardır.** `/api/products`, Faz 4'te
+  eklenen customer'a açık kataloğu barındırır (bkz. [Ürün Kataloğu](#ürün-kataloğu)). Aynı
+  yolu kullanıp rol bazlı dallanmak (ör. "eğer seller ise kendi ürünlerini, customer ise tüm
+  aktif ürünleri göster") hem route mantığını hem yetkilendirmeyi bulanıklaştırır. Ayrı yol,
+  ayrı sorumluluk anlamına gelir: biri satıcının kendi yönetim ekranı, diğeri herkese açık
+  katalog.
 - **Sahiplik kontrolü, rol kontrolünden ayrı bir katmandır.** `authorize("seller")` yalnızca
   isteği yapanın bir seller olduğunu doğrular; isteği yapan seller'ın *bu spesifik ürünün*
   sahibi olduğunu doğrulamaz. Bu ikinci kontrol service katmanında (`sellerId === req.user.id`)
@@ -219,6 +220,67 @@ her istek, ilgili ürünün gerçekten o seller'a ait olduğunu service katmanı
   `Decimal128` tipiyle saklamak tercih edilecektir.
 - **`imageUrl` alanı case study modelinin bir parçası değildir**, katalog görünümü görselsiz
   çok zayıf kalacağı için opsiyonel bir alan olarak sonradan eklenmiştir.
+
+## Ürün Kataloğu
+
+**Akış:** Customer, `/api/products` altındaki endpoint'ler üzerinden herkese açık kataloğu
+görüntüler. Bu endpoint'ler kimlik doğrulaması gerektirmez; yalnızca aktif (`isActive: true`)
+ürünler listelenir ve döndürülür.
+
+### Endpoint'ler
+
+| Method | Endpoint                  | Açıklama                                         | Yetki        |
+| ------ | -------------------------- | -------------------------------------------------- | ------------ |
+| GET    | `/api/products`            | Aktif ürünleri listeler (sayfalama, filtre, arama, sıralama) | Herkese açık |
+| GET    | `/api/products/:id`        | Aktif bir ürünün detayını getirir                  | Herkese açık |
+| GET    | `/api/products/categories` | Her kategorideki aktif ürün sayısını döndürür      | Herkese açık |
+
+### Query Parametreleri
+
+| Parametre  | Tip    | Varsayılan                                      | Örnek              |
+| ---------- | ------ | ------------------------------------------------ | ------------------ |
+| `page`     | number | `1`                                               | `page=2`            |
+| `limit`    | number | `20`                                              | `limit=10`          |
+| `category` | string | —                                                  | `category=food`     |
+| `search`   | string | —                                                  | `search=honey`      |
+| `minPrice` | number | —                                                  | `minPrice=50`       |
+| `maxPrice` | number | —                                                  | `maxPrice=200`      |
+| `sort`     | string | `search` verilmişse `relevance`, yoksa `newest`    | `sort=priceAsc`     |
+
+`sort` için geçerli değerler: `newest`, `priceAsc`, `priceDesc`, `relevance` (yalnızca
+`search` ile birlikte kullanılabilir).
+
+### Örnek İstekler
+
+```bash
+GET /api/products
+GET /api/products/:id
+GET /api/products?category=food
+GET /api/products?search=honey
+```
+
+### Tasarım Kararları
+
+- **Arama için MongoDB text index kullanıldı, regex değil.** Gerekçe: text index kelime
+  bazlı bir ters indeks üzerinde çalışır ve MongoDB'nin sorgu planlayıcısı tarafından
+  kullanılabilir; regex (`$regex`) ile arama ise büyük koleksiyonlarda index kullanamaz
+  ve her istekte tüm koleksiyonu tarar (collection scan). Text index ayrıca alaka puanı
+  (`textScore`) üretir, bu da `relevance` sıralamasını mümkün kılar — regex ile eşit
+  derecede alakalı sonuçlar arasında sıralama yapılamaz.
+- **Türkçe gövdeleme için `default_language: "turkish"` kullanıldı.** Varsayılan (İngilizce)
+  gövdeleme Türkçe içerikte "balı" gibi çekim eklerini kaldıramaz, bu yüzden "bal" araması
+  "balı" geçen ürünleri bulamazdı.
+- **Bilinen kısıt: text index tam kelime eşleşmesi yapar, önek araması desteklenmez.**
+  Örneğin "bal" araması "balkabağı" içeren bir ürünü bulmaz, çünkü text index kelimeleri
+  köklerine indirger ve tam kelime bazında eşleştirir; "bal" ile başlayan farklı bir kelimeyi
+  aynı kök saymaz. Üretimde bu kısıt, önek/typo-tolerant arama sağlayan MongoDB Atlas Search
+  `autocomplete` operatörü ile çözülecektir.
+- **Katalog kimlik doğrulaması gerektirmez.** `/api/products` altındaki route'lara
+  `authenticate` uygulanmaz; ürünleri görüntülemek bir müşteri hesabı gerektirmeyen, herkese
+  açık bir işlemdir.
+- **Satıcı bilgisi yalnızca ad olarak paylaşılır.** Liste ve detay response'larında
+  `seller: { _id, name }` döner; `populate("sellerId", "name")` ile alan seçimi yapılmadan
+  satıcının e-posta adresi ve diğer tüm `User` alanları response'a sızardı.
 
 ## Örnek Veri
 
