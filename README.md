@@ -250,6 +250,19 @@ için `stock: 0`, birkaçı da `isActive: false` olarak işaretlidir.
 | customer | customer1@localshop.dev   |
 | customer | customer2@localshop.dev   |
 
+## Veritabanı Indexleri
+
+Şema üzerindeki indeks tanımları değiştiğinde (yeni indeks, silinen indeks, değişen
+seçenekler), bu değişiklik uygulama açılışında otomatik uygulanmaz — MongoDB, aynı isimde
+ama farklı seçeneklere sahip bir indeks oluşturmaya çalışıldığında mevcut indeksi sessizce
+güncellemek yerine hata verir. Böyle bir değişiklikten sonra indeksleri şemayla senkronize
+etmek için:
+
+```bash
+cd backend
+npm run sync-indexes
+```
+
 ## API Dokümantasyonu
 
 TODO — Faz 11'de doldurulacak

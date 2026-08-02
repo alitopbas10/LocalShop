@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "seed": "tsx -r tsconfig-paths/register src/scripts/seed.ts",
-    "seed:reset": "tsx -r tsconfig-paths/register src/scripts/seed.ts --reset"
+    "seed:reset": "tsx -r tsconfig-paths/register src/scripts/seed.ts --reset",
+    "sync-indexes": "tsx -r tsconfig-paths/register src/scripts/syncIndexes.ts"
   },
   "keywords": [],
   "author": "",

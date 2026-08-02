@@ -98,7 +98,11 @@ productSchema.index({ sellerId: 1, createdAt: -1 });
 // Ağırlık: isimde geçen eşleşme açıklamada geçenden 10 kat değerli sayılır.
 productSchema.index(
   { name: "text", description: "text" },
-  { weights: { name: 10, description: 1 }, name: "product_text_index" },
+  {
+    weights: { name: 10, description: 1 },
+    name: "product_text_index",
+    default_language: "turkish",
+  },
 );
 
 export const Product = model<IProduct, ProductModel>("Product", productSchema);
