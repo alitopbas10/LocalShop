@@ -25,7 +25,8 @@ export function sendSuccess<T>(
   statusCode: number = httpStatus.OK,
   meta?: Record<string, unknown>,
 ): Response<ApiSuccess<T>> {
-  const body: ApiSuccess<T> = meta === undefined ? { success: true, data } : { success: true, data, meta };
+  const body: ApiSuccess<T> =
+    meta === undefined ? { success: true, data } : { success: true, data, meta };
   return res.status(statusCode).json(body);
 }
 
