@@ -41,7 +41,7 @@ interface CatalogSellerRef {
   name: string | null;
 }
 
-// GET /api/catalog
+// GET /api/products (herkese açık katalog; satıcı ürün yönetimi /api/seller/products'ta)
 export interface CatalogListItem {
   _id: string;
   name: string;
@@ -54,7 +54,7 @@ export interface CatalogListItem {
   createdAt: string;
 }
 
-// GET /api/catalog/:id
+// GET /api/products/:id
 export interface CatalogDetail {
   _id: string;
   name: string;
@@ -69,14 +69,15 @@ export interface CatalogDetail {
   updatedAt: string;
 }
 
-// GET /api/catalog/categories
+// GET /api/products/categories
 export interface CatalogCategoryCount {
   value: ProductCategory;
   count: number;
 }
 
-// Seller ürün yönetimi endpoint'leri: POST/GET /api/products, GET/PATCH /api/products/:id,
-// DELETE /api/products/:id, PATCH /api/products/:id/activate.
+// Seller ürün yönetimi endpoint'leri: POST/GET /api/seller/products,
+// GET/PATCH /api/seller/products/:id, DELETE /api/seller/products/:id,
+// PATCH /api/seller/products/:id/activate.
 // Bu ürünler .toJSON() ile serileşmiş ham Product belgesidir (mapper'dan geçmez), bu yüzden
 // sellerId burada populate edilmemiş, düz bir ObjectId string'idir.
 export interface SellerProduct {

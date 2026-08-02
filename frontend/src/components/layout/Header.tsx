@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
 import { paths } from "@/routes/paths";
 import type { UserRole } from "@/types/models";
 
@@ -125,6 +126,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 export default function Header() {
   const { user, status, logout } = useAuth();
+  const { itemCount } = useCart();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -146,10 +148,9 @@ export default function Header() {
 
         {/* Satıcılar alışveriş yapmaz, bu yüzden sepet ikonu onlara gösterilmez. */}
         {user?.role !== "seller" && (
-          <IconLink to={paths.CART} aria-label="Sepetim">
+          <IconLink to={paths.CART} aria-label={`Sepetim, ${itemCount} ürün`}>
             🛒
-            {/* Sepetteki ürün adedi CartContext (Faz 9.5) ile bağlanana kadar sabit 0. */}
-            <CartBadge>0</CartBadge>
+            {itemCount > 0 && <CartBadge>{itemCount}</CartBadge>}
           </IconLink>
         )}
 

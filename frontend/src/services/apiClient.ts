@@ -109,3 +109,13 @@ export async function apiDelete<T>(
   const response = await apiClient.delete<ApiResponse<T>>(url, config);
   return unwrap(response.data);
 }
+
+// Sayfalanmış liste endpoint'leri meta'yı her zaman gönderir (bkz. controller'lardaki
+// sendSuccess(res, items, 200, { total, page, limit, totalPages }) çağrıları); bu yardımcı
+// o garantiyi tip seviyesine taşır, çağıran taraf her seferinde "meta yoksa" dalı yazmaz.
+export function assertMeta(meta: PaginationMeta | undefined): PaginationMeta {
+  if (!meta) {
+    throw new Error("Expected pagination meta in list response");
+  }
+  return meta;
+}
