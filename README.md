@@ -282,6 +282,123 @@ GET /api/products?search=honey
   `seller: { _id, name }` döner; `populate("sellerId", "name")` ile alan seçimi yapılmadan
   satıcının e-posta adresi ve diğer tüm `User` alanları response'a sızardı.
 
+## Sepet
+
+**Akış:** Customer, `/api/cart` altındaki endpoint'ler üzerinden kendi sepetini yönetir. Bu
+endpoint'lerin tamamı `authenticate` ve `authorize("customer")` ile korunur; her kullanıcının
+tek bir sepeti olur (`Cart.userId` üzerinde `unique` index).
+
+### Endpoint'ler
+
+| Method | Endpoint                       | Açıklama                                    | Gerekli Rol |
+| ------ | ------------------------------- | -------------------------------------------- | ----------- |
+| GET    | `/api/cart`                    | Sepeti, güncel ürün bilgisiyle zenginleştirilmiş halde getirir | `customer` |
+| POST   | `/api/cart/items`              | Sepete ürün ekler (varsa adedini artırır)    | `customer`  |
+| PATCH  | `/api/cart/items/:productId`   | Bir kalemin adedini mutlak olarak günceller  | `customer`  |
+| DELETE | `/api/cart/items/:productId`   | Bir kalemi sepetten çıkarır                  | `customer`  |
+| DELETE | `/api/cart`                    | Sepeti tamamen boşaltır                      | `customer`  |
+
+### Örnek Sepet Response'u
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "productId": "665f1a2b3c4d5e6f7a8b9c0d",
+        "quantity": 2,
+        "product": {
+          "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+          "name": "Organik Çiçek Balı",
+          "price": 180,
+          "imageUrl": "https://example.com/bal.jpg",
+          "category": "food",
+          "stock": 15
+        },
+        "unitPrice": 180,
+        "lineTotal": 360,
+        "available": true,
+        "issue": null,
+        "availableStock": 15
+      },
+      {
+        "productId": "665f1a2b3c4d5e6f7a8b9c1e",
+        "quantity": 3,
+        "product": {
+          "_id": "665f1a2b3c4d5e6f7a8b9c1e",
+          "name": "El Dokuma Kilim",
+          "price": 950,
+          "category": "textile",
+          "stock": 1
+        },
+        "unitPrice": 950,
+        "lineTotal": 2850,
+        "available": false,
+        "issue": "INSUFFICIENT_STOCK",
+        "availableStock": 1
+      }
+    ],
+    "itemCount": 5,
+    "distinctItemCount": 2,
+    "subtotal": 360,
+    "hasIssues": true,
+    "issues": [
+      {
+        "productId": "665f1a2b3c4d5e6f7a8b9c1e",
+        "productName": "El Dokuma Kilim",
+        "issue": "INSUFFICIENT_STOCK",
+        "requested": 3,
+        "available": 1
+      }
+    ]
+  }
+}
+```
+
+`subtotal` yalnızca `available: true` olan satırların (`lineTotal`) toplamıdır; sorunlu satır
+tutara dahil edilmez. `itemCount` tüm satırlardaki adetlerin toplamıdır (sorunlu satırlar
+dahil), `distinctItemCount` ise farklı ürün sayısıdır.
+
+### Uygunluk Durumları
+
+| `issue`               | Ne zaman oluşur                                                | Frontend ne göstermeli                                  |
+| ---------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------- |
+| `PRODUCT_UNAVAILABLE`  | Ürün silinmiş ya da satıcı tarafından pasifleştirilmiş (`isActive: false`) | Satırı "artık satılmıyor" olarak işaretle, sepetten çıkarma aksiyonu sun; `product: null` geldiği için ürün detayına linklenemez |
+| `INSUFFICIENT_STOCK`   | Talep edilen adet, ürünün mevcut stoğunu (`availableStock`) aşıyor | Adedi `availableStock` değerine düşürmeyi öner ya da satırı sepetten çıkarma aksiyonu sun |
+
+Her iki durumda da satırın `unitPrice`/`lineTotal` alanları hesaplanır (kullanıcı tutarı
+görebilsin diye), ancak `available: false` olduğu için bu tutar `subtotal`'a dahil edilmez.
+
+### Tasarım Kararları
+
+- **Sepette ürün fiyatı saklanmaz, her okumada üründen canlı çekilir.** Sepet şeması
+  yalnızca `productId` ve `quantity` tutar. Gerekçe: fiyat sepette saklansaydı, satıcı
+  ürün fiyatını değiştirdiğinde müşteri sepetinde eski (güncel olmayan) tutarı görmeye
+  devam ederdi — bu hem kafa karıştırıcı hem de yanıltıcıdır. Bu yüzden `GET /api/cart`
+  her çağrıldığında ürün koleksiyonundan o anki fiyat okunur.
+- **Sipariş anında (Faz 6) fiyat snapshot'ı alınacaktır — bu sepetten bilinçli olarak
+  farklı bir davranıştır.** Sepet "şu an bu ürünler bu fiyata satılıyor" bilgisini taşır
+  ve fiyat değiştikçe güncellenir; sipariş ise "müşteri bu ürünü şu fiyata satın aldı"
+  bilgisini kalıcı olarak dondurur. İkisinin aynı davranması yanlış olurdu: sipariş sonrası
+  fiyat değişse bile geçmiş siparişin tutarı değişmemelidir.
+- **Sepetteki stok kontrolü bir rezervasyon değildir.** `POST /api/cart/items` ve
+  `PATCH /api/cart/items/:productId` sırasında yapılan stok kontrolü yalnızca o anki
+  stok durumuna göre erken geri bildirim sağlar; ürünü o müşteri için ayırmaz (lock atmaz).
+  İki müşteri aynı anda aynı sınırlı stoklu ürünü sepetine ekleyebilir. Gerçek ve tek
+  garanti, sipariş oluşturma anında (Faz 6) transaction içinde yapılacak stok düşme
+  işlemidir — MongoDB Atlas M0'ın yönetilen replica set olması bu transaction'ı mümkün kılar.
+- **Sepet yalnızca `customer` rolüne açıktır.** Bu MVP'de roller birbirini dışlar: seller
+  envanter yönetir, alışveriş yapmaz. Gerçek bir pazaryerinde bir kullanıcı hem alıcı hem
+  satıcı olabilir (rol bazlı değil, yetenek bazlı bir model gerekirdi), ancak MVP kapsamı
+  gereği basit ve net bir sınır tercih edildi: bir hesap ya sepete sahiptir ya da ürün
+  yönetir, ikisi birden değil.
+- **`Cart.userId` üzerindeki `unique` index, "her kullanıcının tek sepeti olur" garantisini
+  veritabanı seviyesinde sağlar.** Uygulama katmanı "sepet var mı, yoksa oluştur" mantığını
+  atomik bir `findOneAndUpdate` + `upsert` ile yürütür; ancak asıl garanti uygulama koduna
+  değil, unique index'e dayanır — iki eşzamanlı istek yarışsa bile ikinci sepet oluşturma
+  denemesi veritabanı tarafından reddedilir.
+
 ## Örnek Veri
 
 Geliştirme ortamında hızlıca test edilebilir veri oluşturmak için bir seed script'i bulunur.

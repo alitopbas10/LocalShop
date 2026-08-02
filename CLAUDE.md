@@ -75,6 +75,21 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 - Pagination'da ikincil sıralama olarak _id kullanılır (kararlı sayfalama) — birincil alan
   (price, createdAt) eşit olan kayıtlarda sayfalar arası kayıt tekrarı/atlaması önlenir
 
+## Sepet Kuralları
+- Sepette ürün fiyatı SAKLANMAZ; her okumada üründen canlı çekilir. Fiyat snapshot'ı
+  yalnızca sipariş oluşturulurken alınır (Faz 6) — sepet ve sipariş bilinçli olarak
+  farklı davranır: sepet her zaman güncel fiyatı gösterir, sipariş o anki fiyatı dondurur
+- Sepet okunurken her satır için uygunluk kontrolü yapılır: ürün pasifleştirilmiş mi
+  (issue: PRODUCT_UNAVAILABLE), stok talep edilen adedi karşılıyor mu
+  (issue: INSUFFICIENT_STOCK)
+- subtotal SADECE uygun (available: true) satırlardan hesaplanır; sorunlu satırlar
+  toplama dahil edilmez — müşterinin gördüğü tutar gerçekten satın alabileceği kadardır
+- Sepete ekleme sırasındaki stok kontrolü bir REZERVASYON DEĞİLDİR; başka bir müşteri aynı
+  anda aynı stoğu tüketebilir. Gerçek garanti sipariş anında transaction ile sağlanır (Faz 6)
+- Sepet erişimi customer rolüne kısıtlıdır (authenticate + authorize("customer"))
+- Para hesapları kuruş cinsine çevrilerek yapılır (Math.round(x * 100), toplama, /100) —
+  floating point toplama hatası (0.1 + 0.2 problemi) sepet toplamına yansımasın diye
+
 ## Kod Stili
 - TypeScript strict mod, any kullanımı yasak, unknown + type guard tercih edilir
 - Named export tercih edilir (React component'leri hariç)
