@@ -8,6 +8,11 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(5000),
   MONGO_URI: z.string().min(1),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+  JWT_EXPIRES_IN: z.string().default("1d"),
+  BCRYPT_SALT_ROUNDS: z.coerce.number().min(10).max(14).default(12),
+  AUTH_RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().default(15),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().default(10),
 });
 
 const parsed = envSchema.safeParse(process.env);
