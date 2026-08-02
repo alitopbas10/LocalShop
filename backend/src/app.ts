@@ -5,7 +5,6 @@ import morgan from "morgan";
 
 import { env, isDev } from "@/config/env";
 import { errorHandler, notFoundHandler } from "@/middlewares";
-import { devRoutes } from "@/modules/_dev/dev.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
 import { cartRoutes } from "@/modules/cart/cart.routes";
 import { orderRoutes } from "@/modules/order/order.routes";
@@ -61,11 +60,6 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/seller/orders", sellerOrderRoutes);
 
 app.use("/api/payments", paymentRoutes);
-
-// Faz 1 doğrulama route'ları — sadece development'ta mount edilir, prod'da hiç erişilemez
-if (isDev) {
-  app.use("/api/_dev", devRoutes);
-}
 
 app.use(notFoundHandler);
 app.use(errorHandler);
