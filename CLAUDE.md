@@ -10,7 +10,7 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 ## Teknoloji Stack
 - Backend: Node.js, Express, TypeScript (strict), Mongoose, Zod, JWT, bcrypt
 - Frontend: React 18, TypeScript, Vite, React Router, styled-components, Axios
-- DB: MongoDB (tek node replica set, transaction desteği için)
+- DB: MongoDB Atlas (M0 free tier — yönetilen replica set, transaction desteği hazır gelir)
 
 ## Backend Mimari Kuralları
 - Feature-folder yapısı: src/modules/<feature>/ altında routes, controller, service, model, schema
