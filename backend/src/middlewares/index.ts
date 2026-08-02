@@ -4,3 +4,4 @@ export * from "@/middlewares/validate";
 export * from "@/middlewares/authenticate";
 export * from "@/middlewares/authorize";
 export * from "@/middlewares/authRateLimit";
+export * from "@/middlewares/paymentRateLimit";

@@ -10,6 +10,7 @@ import { authRoutes } from "@/modules/auth/auth.routes";
 import { cartRoutes } from "@/modules/cart/cart.routes";
 import { orderRoutes } from "@/modules/order/order.routes";
 import { sellerOrderRoutes } from "@/modules/order/sellerOrder.routes";
+import { paymentRoutes } from "@/modules/payment/payment.routes";
 import { catalogRoutes } from "@/modules/product/catalog.routes";
 import { productRoutes } from "@/modules/product/product.routes";
 import { sendSuccess } from "@/shared";
@@ -25,6 +26,10 @@ app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// morgan("dev") request body'sini loglamıyor — bu iyi. Ancak bu satırı ileride bir
+// format string'i (ör. ":req[body]" veya özel bir token) ekleyecek şekilde
+// DEĞİŞTİRMEYİN: /api/payments/pay endpoint'i kart numarası, CVV ve son kullanma
+// tarihi taşıyor, request body loglamak bu veriyi kalıcı loglara yazar.
 if (isDev) {
   app.use(morgan("dev"));
 }
@@ -54,6 +59,8 @@ app.use("/api/orders", orderRoutes);
 // /api/seller/orders, herkese açık /api/orders'tan ayrı bir yoldur: satıcı burada
 // kendisine gelen siparişleri görür, kendi sipariş geçmişini değil.
 app.use("/api/seller/orders", sellerOrderRoutes);
+
+app.use("/api/payments", paymentRoutes);
 
 // Faz 1 doğrulama route'ları — sadece development'ta mount edilir, prod'da hiç erişilemez
 if (isDev) {
