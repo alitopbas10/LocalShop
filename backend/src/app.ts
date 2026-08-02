@@ -4,7 +4,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { env, isDev } from "@/config/env";
-import { errorHandler, notFoundHandler } from "@/middlewares";
+import { corsOptions, helmetOptions } from "@/config/security";
+import { errorHandler, globalRateLimit, notFoundHandler } from "@/middlewares";
 import { authRoutes } from "@/modules/auth/auth.routes";
 import { cartRoutes } from "@/modules/cart/cart.routes";
 import { orderRoutes } from "@/modules/order/order.routes";
@@ -19,10 +20,18 @@ export const app = express();
 // express-rate-limit istemciyi IP ile ayırt eder; proxy arkasında bu ayar olmadan
 // tüm istekler tek IP'den geliyormuş gibi görünür.
 app.set("trust proxy", 1);
+// helmet zaten bu başlığı kaldırıyor; açıkça yazmak niyeti belli eder.
+app.disable("x-powered-by");
 
-app.use(helmet());
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
-app.use(express.json({ limit: "10kb" }));
+// Middleware sırası: helmet → cors → globalRateLimit → body parser'lar → morgan →
+// route'lar → notFoundHandler → errorHandler.
+// globalRateLimit body parser'lardan ÖNCE çalışır: limite takılan bir isteğin
+// gövdesini parse etmek gereksiz iş ve saldırı yüzeyidir (büyük/bozuk gövdeler
+// sayaç kontrolünden önce hiç parse edilmemeli).
+app.use(helmet(helmetOptions));
+app.use(cors(corsOptions));
+app.use(globalRateLimit);
+app.use(express.json({ limit: env.REQUEST_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true }));
 
 // morgan("dev") request body'sini loglamıyor — bu iyi. Ancak bu satırı ileride bir

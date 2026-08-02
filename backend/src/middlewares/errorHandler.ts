@@ -27,6 +27,19 @@ function isJwtError(
   );
 }
 
+// express.json'un limit aşımında fırlattığı hata (raw-body/http-errors) status 413
+// ve type: "entity.too.large" taşır; bu kontrol olmadan resolveError'ın catch-all
+// dalına düşer ve limit aşımı 500 olarak döner.
+function isPayloadTooLargeError(err: unknown): err is Error & { status: number; type: string } {
+  return (
+    err instanceof Error &&
+    "status" in err &&
+    (err as { status: unknown }).status === httpStatus.PAYLOAD_TOO_LARGE &&
+    "type" in err &&
+    (err as { type: unknown }).type === "entity.too.large"
+  );
+}
+
 function extractDuplicateField(err: mongoose.mongo.MongoServerError): string {
   const keyValue: unknown = err.keyValue;
   if (keyValue && typeof keyValue === "object") {
@@ -39,6 +52,14 @@ function extractDuplicateField(err: mongoose.mongo.MongoServerError): string {
 }
 
 function resolveError(err: unknown): ResolvedError {
+  if (isPayloadTooLargeError(err)) {
+    return {
+      statusCode: httpStatus.PAYLOAD_TOO_LARGE,
+      code: errorCodes.PAYLOAD_TOO_LARGE,
+      message: "Request body too large",
+    };
+  }
+
   if (err instanceof ZodError) {
     const details: FieldError[] = err.issues.map((issue) => ({
       field: issue.path.map(String).join(".") || "root",
