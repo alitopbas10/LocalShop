@@ -176,6 +176,50 @@ access token alır. Bu token, korumalı endpoint'lere yapılan her istekte
   - Auth endpoint'lerinde rate limiting (`express-rate-limit`)
   - Şifre alanında `select: false` — sorgular şifreyi varsayılan olarak getirmez
 
+## Ürün Yönetimi
+
+**Akış:** Seller, kendi ürünlerini `/api/seller/products` altındaki endpoint'ler üzerinden
+yönetir. Bu endpoint'lerin tamamı `authenticate` ve `authorize("seller")` ile korunur; ayrıca
+her istek, ilgili ürünün gerçekten o seller'a ait olduğunu service katmanında doğrular.
+
+### Endpoint'ler
+
+| Method | Endpoint                             | Açıklama                                          | Gerekli Rol |
+| ------ | ------------------------------------- | -------------------------------------------------- | ----------- |
+| POST   | `/api/seller/products`               | Yeni ürün oluşturur                                | `seller`    |
+| GET    | `/api/seller/products`               | Kendi ürünlerini listeler (sayfalama, filtre, sıralama) | `seller`    |
+| GET    | `/api/seller/products/:id`           | Kendi ürününün detayını getirir                    | `seller`    |
+| PATCH  | `/api/seller/products/:id`           | Ürünü günceller (partial — sadece gönderilen alanlar) | `seller`    |
+| DELETE | `/api/seller/products/:id`           | Ürünü pasifleştirir (soft delete)                  | `seller`    |
+| PATCH  | `/api/seller/products/:id/activate`  | Pasifleştirilmiş ürünü tekrar aktive eder          | `seller`    |
+
+### Ürün Kategorileri
+
+`food`, `beverage`, `handcraft`, `textile`, `cosmetics`, `home`, `other`
+
+### Tasarım Kararları
+
+- **Soft delete kullanılır (`isActive: false`), fiziksel silme yapılmaz.** Gerekçe: bir ürün
+  gerçekten silinirse, o ürünü içeren sepetler ve geçmiş sipariş kayıtları referans
+  bütünlüğünü kaybeder (var olmayan bir ürüne işaret ederler). `isActive: false` ürünü
+  yalnızca katalogdan/aramadan gizler, geçmiş veriyi bozmadan.
+- **`/api/seller/products` ve `/api/products` ayrı yollardır.** Faz 4'te customer'a açık
+  katalog `/api/products` olacak. Aynı yolu kullanıp rol bazlı dallanmak (ör. "eğer seller ise
+  kendi ürünlerini, customer ise tüm aktif ürünleri göster") hem route mantığını hem
+  yetkilendirmeyi bulanıklaştırır. Ayrı yol, ayrı sorumluluk anlamına gelir: biri satıcının
+  kendi yönetim ekranı, diğeri herkese açık katalog.
+- **Sahiplik kontrolü, rol kontrolünden ayrı bir katmandır.** `authorize("seller")` yalnızca
+  isteği yapanın bir seller olduğunu doğrular; isteği yapan seller'ın *bu spesifik ürünün*
+  sahibi olduğunu doğrulamaz. Bu ikinci kontrol service katmanında (`sellerId === req.user.id`)
+  ayrıca yapılır — atlanırsa bir seller başka bir seller'ın ürününü düzenleyebilir/pasifleştirebilir
+  (klasik IDOR açığı).
+- **Fiyat `Number` tipinde saklanır.** Bu, bilinçli bir MVP kısıtıdır: kayan noktalı sayılarla
+  (floating point) toplama/çıkarma yapıldığında yuvarlama hataları oluşabilir. Production'a
+  taşınırken tutarı kuruş cinsinden tam sayı (`priceInCents: number`) veya Mongoose'un
+  `Decimal128` tipiyle saklamak tercih edilecektir.
+- **`imageUrl` alanı case study modelinin bir parçası değildir**, katalog görünümü görselsiz
+  çok zayıf kalacağı için opsiyonel bir alan olarak sonradan eklenmiştir.
+
 ## Örnek Veri
 
 Geliştirme ortamında hızlıca test edilebilir veri oluşturmak için bir seed script'i bulunur.

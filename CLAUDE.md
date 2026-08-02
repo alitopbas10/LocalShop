@@ -52,6 +52,17 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 - JWT payload: { sub, role }. Kullanıcı bilgisi req.user'a her istekte DB'den tazelenerek
   doldurulur; token'daki role bilgisine körlemesine güvenilmez
 
+## Kaynak Sahipliği
+- Bir kullanıcıya ait kaynaklarda (product, cart, order) rol kontrolü YETMEZ; sahiplik
+  kontrolü ayrı ve zorunlu bir katmandır
+- Sahiplik kontrolü service katmanında yapılır, controller'da değil
+- Standart akış: kaynağı id ile getir → yoksa 404 → sahibi değilse 403 (bu iki kontrol
+  ayrı ayrı yapılır: 404 "böyle bir kaynak yok", 403 "var ama senin değil")
+- Sahip alanı (sellerId, userId) ASLA request body'sinden okunmaz, her zaman
+  req.user.id'den alınır — aksi halde bir kullanıcı başkası adına kaynak oluşturabilir
+- Soft delete kullanılır: isActive: false. Kaynak fiziksel olarak silinmez; gerçek silme
+  o kaynağa referans veren diğer kayıtları (sepet, sipariş geçmişi) kırar
+
 ## Kod Stili
 - TypeScript strict mod, any kullanımı yasak, unknown + type guard tercih edilir
 - Named export tercih edilir (React component'leri hariç)
