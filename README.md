@@ -676,6 +676,41 @@ için yapılan tüm retry'larda aynı anahtarı kullanmalıdır.
 
 ## Güvenlik
 
+Faz 8 kapsamında uygulanan güvenlik sertleştirme çalışması. Aşağıdaki tablo, case
+study'nin güvenlik gereksinim listesini birebir karşılar ve her maddenin nerede
+uygulandığını gösterir:
+
+| Gereksinim                    | Uygulama                                              | Dosya                |
+| ------------------------------ | ------------------------------------------------------ | -------------------- |
+| password hashing               | bcryptjs, 12 salt round, pre-save hook                  | `user.model.ts`      |
+| JWT authentication              | HS256, algorithm pinning, issuer kontrolü               | `token.service.ts`   |
+| input validation                | Zod, body/query/params                                  | `validate.ts`        |
+| rate limiting                   | global + auth + payment, katmanlı (genel gevşek, özel sıkı) | `*RateLimit.ts`   |
+| CORS kontrolü                   | origin whitelist, credentials                           | `security.ts`        |
+| environment variables           | Zod ile doğrulanan tipli config                         | `env.ts`              |
+| kart bilgisi saklanmıyor        | yalnızca `cardLast4` + `cardBrand`                       | `payment.model.ts`   |
+| hassas bilgi response'ta yok    | `toJSON` transform, `populate()` alan seçimi             | —                     |
+
+### Ek Güvenlik Önlemleri
+
+Case study'de istenmemiş, ek olarak uygulanan önlemler:
+
+- **User enumeration koruması** (`auth.service.ts`) — register ve login hata
+  mesajları e-posta adresini veya kullanıcının var olup olmadığını ele vermez.
+- **Timing attack koruması** (`auth.service.ts`) — login'de kullanıcı bulunamasa
+  bile sabit bir hash'e karşı bcrypt karşılaştırması çalıştırılır.
+- **NoSQL enjeksiyon ve prototype pollution savunması** (`sanitizeInput.ts`) —
+  `$` ile başlayan/nokta içeren anahtarlar ve `__proto__`/`constructor`/`prototype`
+  request body ve params'tan temizlenir.
+- **Çifte ödeme koruması** (`payment.model.ts`, `payment.service.ts`) — kısmi
+  unique index (`{ orderId: 1 }`, yalnızca `status: "SUCCEEDED"`) + idempotency key.
+- **Request ID ile izlenebilirlik** (`requestId.ts`) — her isteğe `X-Forwarded-For`'dan
+  bağımsız benzersiz bir id atanır, 5xx loglarına ve hata response'una eklenir.
+- **Helmet güvenlik header'ları** (`security.ts`) — sıkı CSP, HSTS (production),
+  `X-Powered-By` kapalı, `no-referrer` politikası.
+- **Otomatik güvenlik denetim script'i** (`securityAudit.ts`) — bkz. aşağıdaki
+  "Güvenlik Testleri" bölümü.
+
 ### Trust Proxy ve Rate Limiting
 
 `express-rate-limit`, istemciyi ayırt etmek için `req.ip`'yi kullanır. Express'te bu
@@ -702,6 +737,103 @@ doğrudan internete açıksa doğrudur.
 `npm run audit:security` script'i (test G30) bu senaryoyu otomatik doğrular: art
 arda farklı `X-Forwarded-For` değerleriyle login denemesi yapar, bir noktada `429`
 alınmazsa (yani tüm denemeler `401` ile sonuçlanırsa) bu açığın var olduğunu işaret eder.
+
+### Güvenlik Testleri
+
+Çalışan bir sunucuya (`npm run dev`) gerçek HTTP istekleri atan, tekrar çalıştırılabilir
+bir denetim script'i:
+
+```bash
+cd backend
+npm run audit:security
+```
+
+Seed hesaplarını (`seller1`/`seller2`, `customer1`/`customer2`) kullanır, kendi
+fixture'larını (sipariş, ürün) HTTP üzerinden oluşturur — DB'ye doğrudan erişmez.
+30 test, 7 grupta:
+
+| Grup | Konu             | Neyi doğrular                                                          |
+| ---- | ----------------- | ------------------------------------------------------------------------ |
+| A    | Kimlik Doğrulama   | token'sız/bozuk/sahte (`alg:none`)/süresi geçmiş/yanlış secret'lı token'lar |
+| B    | Yetkilendirme      | rol kısıtı (customer↔seller) ve sahiplik kontrolü (IDOR)                |
+| C    | Enjeksiyon         | NoSQL operatör enjeksiyonu, parametre kirliliği, prototype pollution     |
+| D    | Veri Sızıntısı     | response'larda password/kart/e-posta/stack trace sızıntısı              |
+| E    | İş Mantığı         | istemciden gelen amount/sellerId/items, durum geçiş kuralları           |
+| F    | Rate Limiting      | login ve ödeme endpoint'lerinde limit aşımı (**her zaman en son çalışır**) |
+| G    | Header'lar         | güvenlik header'ları, CORS, trust proxy ile rate-limit atlatma denemesi  |
+
+Herhangi bir test FAIL olursa script `exit code 1` ile çıkar (CI/CD'ye bağlanabilir).
+
+Örnek çıktı (özet bölümü):
+
+```
+=== ÖZET ===
+
+  [A1  ] PASS  Token'sız korumalı endpoint
+  [A2  ] PASS  Bozuk token
+  [A3  ] PASS  "none" algoritmasıyla imzalanmış token (algorithm pinning)
+  [A4  ] PASS  Süresi geçmiş token
+  [A5  ] PASS  Başka bir secret ile imzalanmış token
+  [B6  ] PASS  Customer, seller endpoint'ine erişmeye çalışıyor
+  [B7  ] PASS  Seller, customer endpoint'ine erişmeye çalışıyor
+  [B8  ] PASS  Seller A, Seller B'nin ürününü güncellemeye çalışıyor (IDOR)
+  [B9  ] PASS  Customer A, Customer B'nin siparişini görüntülemeye çalışıyor
+  [C10 ] PASS  Login'de $ne operatör enjeksiyonu
+  [C11 ] PASS  Query'de operatör enjeksiyonu (category[$ne]=food)
+  [C12 ] PASS  Parametre kirliliği (page=1&page=2)
+  [C13 ] PASS  __proto__ ile prototype pollution denemesi (register)
+  [D14 ] PASS  Register response'unda password/__v yok
+  [D15 ] PASS  /api/auth/me response'unda password/__v yok
+  [D16 ] PASS  Katalog response'unda satıcı e-postası yok
+  [D17 ] PASS  Satıcı sipariş response'unda alıcı e-postası yok
+  [D18 ] PASS  Payment response'unda cardNumber/cvv/expiry yok
+  [D19 ] PASS  500 hatasında stack trace yok (production simülasyonu)
+  [E20 ] PASS  İstemciden gelen amount ile ödeme
+  [E21 ] PASS  İstemciden gelen sellerId ile ürün ekleme (yoksayılmalı)
+  [E22 ] PASS  İstemciden gelen items ile sipariş oluşturma
+  [E23 ] PASS  Ödenmemiş (PENDING_PAYMENT) siparişi kargolama
+  [G26 ] PASS  X-Powered-By header'ı yok
+  [G27 ] PASS  Content-Security-Policy header'ı var
+  [G28 ] PASS  X-Content-Type-Options: nosniff var
+  [G29 ] PASS  İzin verilmeyen origin'e CORS izni yok
+  [G30 ] PASS  X-Forwarded-For ile rate limit atlatma denemesi (auth limiti)
+  [F24 ] PASS  Login'e ardışık başarısız denemeler
+  [F25 ] PASS  Ödeme endpoint'ine ardışık istekler
+
+Toplam: 30  Geçti: 30  Kaldı: 0
+TÜM TESTLER GEÇTİ
+```
+
+> **Not:** `D19` yalnızca sunucu `NODE_ENV=production` ile çalışırken PASS verir —
+> `errorHandler` stack trace'i BİLİNÇLİ olarak sadece development modunda ekler.
+> Normal `npm run dev` (development) ile çalıştırıldığında bu tek test FAIL
+> görünür; bu bir script hatası değil, doğru çalışan bir güvenlik kontrolünün
+> kanıtıdır. `F` grubu ise login/ödeme rate limit sayaçlarını kasıtlı olarak
+> tükettiği için script'i art arda çalıştırmak sonraki denemelerde `429` ile
+> karşılaşmanıza sebep olabilir — pencere sıfırlanana kadar (varsayılan 15dk)
+> beklemek veya sunucuyu yeniden başlatmak (bellek içi sayaç sıfırlanır) yeterlidir.
+
+### Bilinen Kısıtlar
+
+- **Refresh token yok, access token 1 gün ömürlü.** Doğru bir refresh akışı token
+  rotasyonu ve iptal listesi (revocation list) gerektirir; MVP kapsamında bunu
+  yarım uygulamak hiç uygulamamaktan daha kötüdür (bkz. Kimlik Doğrulama bölümü).
+- **Rate limiting bellekte (in-memory) tutuluyor.** `express-rate-limit`'in
+  varsayılan `MemoryStore`'u tek process için doğru çalışır; birden fazla instance
+  (yatay ölçekleme, çoklu container) ile dağıtıldığında her instance kendi sayacını
+  tutar ve gerçek limit instance sayısıyla orantılı şekilde gevşer — production'da
+  paylaşılan bir store (Redis) gerekir.
+- **Ödenmemiş sipariş stoğu süresiz rezerve tutar.** `PENDING_PAYMENT` durumunda
+  kalan bir sipariş için otomatik zaman aşımı yoktur (bkz. Sipariş Sistemi →
+  Bilinen Kısıtlar); üretimde TTL tabanlı bir arka plan işi (cron/queue) stoğu
+  iade etmelidir.
+- **HTTPS terminasyonu uygulama dışında varsayılıyor.** Express doğrudan TLS
+  sunmaz; production'da bir reverse proxy (nginx, ALB, Cloudflare vb.) HTTPS'i
+  sonlandırıp uygulamaya düz HTTP ile bağlanacak şekilde tasarlanmıştır — bu
+  yüzden `TRUST_PROXY`'nin doğru ayarlanması (yukarıda) production'da zorunludur.
+- **E-posta doğrulama ve şifre sıfırlama akışları kapsam dışı.** Kayıt anında
+  e-posta sahipliği doğrulanmaz, unutulan şifre için bir akış yoktur; bu MVP'nin
+  kapsamı customer/seller temel akışıyla sınırlıdır.
 
 ## Örnek Veri
 

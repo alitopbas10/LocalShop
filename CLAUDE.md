@@ -32,6 +32,55 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 - Her async ekranda loading ve error state'i açıkça yönetilir
 
 ## Güvenlik Kuralları
+
+### Middleware Sırası (app.ts)
+requestId → helmet → cors → globalRateLimit → body parser'lar → sanitizeInput →
+morgan → route'lar → notFoundHandler → errorHandler. Sıra rastgele değildir:
+- requestId EN BAŞTA (helmet'ten bile önce) çalışır: sonraki hiçbir adım bu id
+  olmadan işlenmemeli — "hangi istek" sorusunun tek pratik cevabı budur.
+- globalRateLimit body parser'lardan ÖNCE çalışır: limite takılacak bir isteğin
+  gövdesini parse etmek gereksiz iş ve saldırı yüzeyidir.
+- sanitizeInput body parser'lardan HEMEN SONRA, route'lardan ÖNCE çalışır:
+  req.body'nin nesne olması gerektiği için parser'dan önce çalışamaz; ama
+  enjeksiyon denemeleri controller/service'e hiç ulaşmadan temizlenmelidir.
+
+### Girdi Sanitizasyonu ve NoSQL Enjeksiyonu
+- express-mongo-sanitize ve hpp gibi paketler KULLANILMAZ: bu paketler req.query
+  üzerine yazarak çalışır; Express 5'te req.query salt-okunur bir getter'dır —
+  üzerine yazmaya çalışmak ya çöker ya sessizce hiçbir şey yapmaz.
+- req.query için ayrı bir sanitizasyon katmanı YOKTUR, asıl savunma Zod
+  şemalarıdır: z.string() bir nesne kabul etmez, z.coerce.number() bir dizi
+  kabul etmez — enjeksiyon denemeleri validate middleware'inde reddedilir.
+- req.body ve req.params (ikisi de yazılabilir) sanitizeInput middleware'i ile
+  temizlenir: "$" ile başlayan veya nokta içeren anahtarlar, __proto__/
+  constructor/prototype anahtarları silinir.
+- mongoose.set("sanitizeFilter", true) KULLANILMAZ: Mongoose'un implementasyonu
+  yalnızca zaten { $eq: ... } olan tek-anahtarlı nesneleri güvenli sayar;
+  uygulamanın kendisinin kurduğu $in/$gte/$lte/$elemMatch gibi tamamen meşru
+  operatörleri de tekrar $eq içine sarıp sorguyu bozar (bu ayarla sepet/checkout/
+  stok düşümü/fiyat filtresi bir kez gerçekten kırılmıştı — bir daha eklenmemeli).
+
+### populate() ve Alan Seçimi
+- Her populate() çağrısında alan seçimi ZORUNLUDUR (ör. .populate("sellerId", "name")).
+  Seçim yapılmazsa referans verilen belgenin TÜM alanları (ör. satıcının e-postası,
+  şifre hash'i) response'a sızar. `grep -rn "populate(" src/` ile periyodik kontrol edilebilir.
+
+### Para ve Sahiplik Bilgisi
+- Tutar (payment amount, order totalPrice) İSTEMCİDEN ALINMAZ, sunucu tarafında
+  hesaplanan/saklanan değerden okunur.
+- Sahip alanı (sellerId, userId) ASLA request body'sinden okunmaz, her zaman
+  req.user.id'den alınır.
+- Sipariş içeriği istemciden alınmaz, sunucudaki sepetten okunur.
+
+### Yeni Endpoint Eklerken Kontrol Listesi
+1. Zod şeması ile validate (body/query/params)
+2. authenticate middleware'i
+3. Gerekiyorsa authorize(role)
+4. Kaynak sahiplik kontrolü SERVICE katmanında (404 "yok" / 403 "senin değil" ayrı ayrı)
+5. src/scripts/securityAudit.ts'e ilgili bir test eklenmeli (ör. yeni bir rol
+   kısıtı varsa B grubuna, yeni bir hassas alan varsa D grubuna)
+
+### Genel Kurallar
 - Şifreler bcrypt ile hash'lenir, User modelinde password alanı select:false
 - Hassas alanlar (password, __v) hiçbir API response'unda yer almaz — toJSON transform ile temizlenir
 - Kart bilgileri hiçbir koşulda DB'ye yazılmaz veya loglanmaz
