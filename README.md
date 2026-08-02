@@ -137,6 +137,45 @@ src/
   sepeti temizle") MongoDB transaction kullanılacak; transaction desteği yalnızca replica set
   üzerinde çalışır, MongoDB Atlas M0 cluster'ları bunu yönetilen şekilde hazır sağlar.
 
+## Kimlik Doğrulama
+
+**Akış:** Kullanıcı `POST /api/auth/register` veya `POST /api/auth/login` ile bir JWT
+access token alır. Bu token, korumalı endpoint'lere yapılan her istekte
+`Authorization: Bearer <token>` header'ı ile gönderilir.
+
+### Roller ve Yetkiler
+
+| Rol        | Yetkiler                                                                 |
+| ---------- | ------------------------------------------------------------------------ |
+| `customer` | Ürünleri görüntüler, sepete ekler, sipariş oluşturur                     |
+| `seller`   | Ürün ekler/düzenler, kendi ürünlerine ait siparişleri yönetir            |
+
+### Endpoint'ler
+
+| Method | Endpoint             | Açıklama                                    | Yetki         |
+| ------ | --------------------- | -------------------------------------------- | ------------- |
+| POST   | `/api/auth/register` | Yeni kullanıcı kaydı                         | Herkese açık  |
+| POST   | `/api/auth/login`    | Giriş yapar, JWT access token döner          | Herkese açık  |
+| GET    | `/api/auth/me`       | Giriş yapmış kullanıcının bilgisini döner    | `authenticate` |
+
+### Bilinçli Kapsam Kararları
+
+- **Refresh token uygulanmadı.** Gerekçe: doğru bir refresh akışı token rotasyonu, iptal
+  listesi (revocation list) ve yeniden kullanım tespiti (reuse detection) gerektirir; MVP
+  kapsamında bunu yarım uygulamak, hiç uygulamamaktan güvenlik açısından daha kötüdür. Bunun
+  yerine 1 gün ömürlü (`JWT_EXPIRES_IN=1d`) bir access token kullanıldı.
+- **Alınan güvenlik önlemleri:**
+  - bcrypt ile şifre hash'leme (12 salt round)
+  - User enumeration koruması — login ve register hata mesajları e-posta adresini veya
+    kullanıcının var olup olmadığını ele vermez
+  - Timing attack koruması — login'de kullanıcı bulunamasa bile sabit bir hash'e karşı
+    bcrypt karşılaştırması çalıştırılır, böylece yanıt süresi kullanıcı varlığına göre
+    değişmez
+  - JWT algorithm pinning — doğrulamada yalnızca `HS256` kabul edilir, `alg: none`
+    (algorithm confusion) saldırısına kapalı
+  - Auth endpoint'lerinde rate limiting (`express-rate-limit`)
+  - Şifre alanında `select: false` — sorgular şifreyi varsayılan olarak getirmez
+
 ## API Dokümantasyonu
 
 TODO — Faz 11'de doldurulacak

@@ -38,6 +38,20 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 - Tüm sırlar .env üzerinden okunur, koda gömülmez
 - Seller kaynaklarında rol kontrolü yetmez, ownership kontrolü (sellerId === req.user.id) zorunludur
 
+## Auth Kuralları
+- Korumalı route'lar: authenticate middleware'i route seviyesinde uygulanır (her route
+  kendi ihtiyacına göre ekler, global olarak uygulanmaz)
+- Rol kısıtı gereken route'larda sıra sabittir: authenticate SONRA authorize("seller").
+  authenticate önce req.user'ı doldurur, authorize rol kontrolünü onun üzerinden yapar
+- authorize() sadece ROL kontrolü yapar, sahiplik kontrolü YAPMAZ; kaynak sahipliği ilgili
+  service katmanında (sellerId === req.user.id) ayrıca kontrol edilmelidir — bu ayrımı
+  atlamak klasik IDOR açığıdır
+- Şifre asla loglanmaz, hiçbir response'a konmaz; User modelinde select: false ile korunur
+- Login hataları her zaman jenerik: "Invalid email or password" (kullanıcı bulunamadı ile
+  şifre yanlış durumları dışarıdan ayırt edilemez, aynı mesaj ve aynı hata kodu döner)
+- JWT payload: { sub, role }. Kullanıcı bilgisi req.user'a her istekte DB'den tazelenerek
+  doldurulur; token'daki role bilgisine körlemesine güvenilmez
+
 ## Kod Stili
 - TypeScript strict mod, any kullanımı yasak, unknown + type guard tercih edilir
 - Named export tercih edilir (React component'leri hariç)
