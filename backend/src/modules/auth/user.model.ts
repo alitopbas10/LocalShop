@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { Schema, model, type Model } from "mongoose";
+import { Schema, model, type HydratedDocument, type Model } from "mongoose";
 
 import { env } from "@/config/env";
 import { USER_ROLES, type UserRole } from "@/modules/auth/user.types";
@@ -18,6 +18,8 @@ export interface IUserMethods {
 }
 
 export type UserModel = Model<IUser, Record<string, never>, IUserMethods>;
+
+export type UserDocument = HydratedDocument<IUser, IUserMethods>;
 
 const userSchema = new Schema<IUser, UserModel, IUserMethods>(
   {
