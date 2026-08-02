@@ -674,6 +674,35 @@ için yapılan tüm retry'larda aynı anahtarı kullanmalıdır.
   (ör. Stripe, iyzico) geçilirken tek değişmesi gereken dosya `fakePay.provider.ts`'tir;
   geri kalan tüm katmanlar (schema, service, controller, route) aynı kalır.
 
+## Güvenlik
+
+### Trust Proxy ve Rate Limiting
+
+`express-rate-limit`, istemciyi ayırt etmek için `req.ip`'yi kullanır. Express'te bu
+değerin nereden okunacağı `app.set("trust proxy", ...)` ayarıyla belirlenir —
+`TRUST_PROXY` ortam değişkeninden okunur (`backend/src/config/env.ts`):
+
+- **Uygulama doğrudan dinliyorsa (varsayılan, `TRUST_PROXY=false`):** `req.ip`,
+  bağlantının gerçek soket adresinden okunur; istemcinin gönderdiği
+  `X-Forwarded-For` header'ı YOK SAYILIR.
+- **Uygulama bir reverse proxy (nginx, ALB, Cloudflare vb.) arkasındaysa:**
+  `TRUST_PROXY`, proxy zincirindeki hop sayısına ayarlanmalıdır (ör. tek bir
+  reverse proxy için `TRUST_PROXY=1`).
+
+**Bu ayar yanlış yapılandırılırsa rate limiting işlevsiz kalır.** Uygulama doğrudan
+dinlerken `trust proxy` sabit bir sayıya (veya `true`'ya) ayarlanırsa, Express
+`X-Forwarded-For` header'ına güvenmeye başlar — bu header istemci tarafından
+serbestçe belirlenebilir bir HTTP header'ıdır. Bir saldırgan her istekte farklı bir
+`X-Forwarded-For` göndererek kendini her seferinde "farklı bir IP"ymiş gibi
+gösterebilir ve IP tabanlı rate limiting'i (login brute force koruması dahil)
+tamamen atlatabilir. `TRUST_PROXY`, production'da gerçek altyapı topolojisine göre
+DOĞRU ayarlanmalıdır — güvenli varsayılan (`false`) yalnızca uygulama gerçekten
+doğrudan internete açıksa doğrudur.
+
+`npm run audit:security` script'i (test G30) bu senaryoyu otomatik doğrular: art
+arda farklı `X-Forwarded-For` değerleriyle login denemesi yapar, bir noktada `429`
+alınmazsa (yani tüm denemeler `401` ile sonuçlanırsa) bu açığın var olduğunu işaret eder.
+
 ## Örnek Veri
 
 Geliştirme ortamında hızlıca test edilebilir veri oluşturmak için bir seed script'i bulunur.
