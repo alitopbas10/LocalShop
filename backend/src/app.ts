@@ -4,6 +4,9 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { env, isDev } from "@/config/env";
+import { errorHandler, notFoundHandler } from "@/middlewares";
+import { devRoutes } from "@/modules/_dev/dev.routes";
+import { sendSuccess } from "@/shared";
 
 export const app = express();
 
@@ -17,22 +20,17 @@ if (isDev) {
 }
 
 app.get("/health", (_req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    data: {
-      status: "ok",
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
-    },
+  sendSuccess(res, {
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
   });
 });
 
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: {
-      message: "Route not found",
-      code: "NOT_FOUND",
-    },
-  });
-});
+// Faz 1 doğrulama route'ları — sadece development'ta mount edilir, prod'da hiç erişilemez
+if (isDev) {
+  app.use("/api/_dev", devRoutes);
+}
+
+app.use(notFoundHandler);
+app.use(errorHandler);

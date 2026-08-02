@@ -14,6 +14,7 @@ export type ApiFailure = {
     message: string;
     code: ErrorCode;
     details?: unknown;
+    stack?: string;
   };
 };
 

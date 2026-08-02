@@ -116,17 +116,17 @@ function resolveError(err: unknown): ResolvedError {
   };
 }
 
-function logError(err: unknown, req: Request, statusCode: number): void {
-  const line = `${req.method} ${req.originalUrl} ${statusCode}`;
+function logError(err: unknown, req: Request, resolved: ResolvedError): void {
+  const line = `${req.method} ${req.originalUrl} ${resolved.statusCode}`;
 
-  if (statusCode >= 500) {
+  if (resolved.statusCode >= 500) {
     console.error(line, err);
     return;
   }
 
+  // 4xx hataları operasyonel/beklenen hatalardır; production'da hiç loglanmaz
   if (!isProd) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.warn(line, message);
+    console.warn(`${line} ${resolved.code}`);
   }
 }
 
@@ -137,20 +137,21 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
   }
 
   const resolved = resolveError(err);
-  logError(err, req, resolved.statusCode);
+  logError(err, req, resolved);
 
-  const body: ApiFailure & { stack?: string } = {
+  // stack trace sadece development'ta VE 5xx'te eklenir; 4xx'ler beklenen/operasyonel
+  // hatalardır ve stack gerektirmez, response zarfının sözleşmesini de bozmamalıdır
+  const stack = isDev && resolved.statusCode >= 500 && err instanceof Error ? err.stack : undefined;
+
+  const body: ApiFailure = {
     success: false,
     error: {
       message: resolved.message,
       code: resolved.code,
       ...(resolved.details !== undefined ? { details: resolved.details } : {}),
+      ...(stack !== undefined ? { stack } : {}),
     },
   };
-
-  if (isDev && err instanceof Error && err.stack) {
-    body.stack = err.stack;
-  }
 
   res.status(resolved.statusCode).json(body);
 }
