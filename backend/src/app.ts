@@ -5,7 +5,13 @@ import morgan from "morgan";
 
 import { env, isDev } from "@/config/env";
 import { corsOptions, helmetOptions } from "@/config/security";
-import { errorHandler, globalRateLimit, notFoundHandler, sanitizeInput } from "@/middlewares";
+import {
+  errorHandler,
+  globalRateLimit,
+  notFoundHandler,
+  requestId,
+  sanitizeInput,
+} from "@/middlewares";
 import { authRoutes } from "@/modules/auth/auth.routes";
 import { cartRoutes } from "@/modules/cart/cart.routes";
 import { orderRoutes } from "@/modules/order/order.routes";
@@ -23,8 +29,11 @@ app.set("trust proxy", 1);
 // helmet zaten bu başlığı kaldırıyor; açıkça yazmak niyeti belli eder.
 app.disable("x-powered-by");
 
-// Middleware sırası: helmet → cors → globalRateLimit → body parser'lar →
+// Middleware sırası: requestId → helmet → cors → globalRateLimit → body parser'lar →
 // sanitizeInput → morgan → route'lar → notFoundHandler → errorHandler.
+// requestId EN BAŞTA çalışır (helmet'ten bile önce): sonraki hiçbir middleware veya
+// route bu id olmadan çalışmamalı — hata ayıklama sırasında "hangi istek" sorusunun
+// tek pratik cevabı budur.
 // globalRateLimit body parser'lardan ÖNCE çalışır: limite takılan bir isteğin
 // gövdesini parse etmek gereksiz iş ve saldırı yüzeyidir (büyük/bozuk gövdeler
 // sayaç kontrolünden önce hiç parse edilmemeli).
@@ -32,6 +41,7 @@ app.disable("x-powered-by");
 // olarak var olması gerekir, o yüzden parser'lardan önce çalışamaz; route'lardan
 // önce olması gerekir ki NoSQL enjeksiyonu ve prototype pollution denemeleri
 // controller/service'e hiç ulaşmadan temizlensin.
+app.use(requestId);
 app.use(helmet(helmetOptions));
 app.use(cors(corsOptions));
 app.use(globalRateLimit);

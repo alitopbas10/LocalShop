@@ -15,6 +15,7 @@ export type ApiFailure = {
     code: ErrorCode;
     details?: unknown;
     stack?: string;
+    requestId?: string;
   };
 };
 

@@ -141,7 +141,8 @@ function logError(err: unknown, req: Request, resolved: ResolvedError): void {
   const line = `${req.method} ${req.originalUrl} ${resolved.statusCode}`;
 
   if (resolved.statusCode >= 500) {
-    console.error(line, err);
+    // requestId: kullanıcı "hata aldım" dediğinde bu isteği log'da bulmanın tek pratik yolu.
+    console.error(`${line} requestId=${req.id ?? "unknown"}`, err);
     return;
   }
 
@@ -169,6 +170,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
     error: {
       message: resolved.message,
       code: resolved.code,
+      requestId: req.id,
       ...(resolved.details !== undefined ? { details: resolved.details } : {}),
       ...(stack !== undefined ? { stack } : {}),
     },
