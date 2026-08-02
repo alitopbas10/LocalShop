@@ -7,6 +7,7 @@ import { env, isDev } from "@/config/env";
 import { errorHandler, notFoundHandler } from "@/middlewares";
 import { devRoutes } from "@/modules/_dev/dev.routes";
 import { authRoutes } from "@/modules/auth/auth.routes";
+import { productRoutes } from "@/modules/product/product.routes";
 import { sendSuccess } from "@/shared";
 
 export const app = express();
@@ -33,6 +34,11 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
+
+// /api/products (Faz 4'te customer'a açık katalog) ile aynı yol kullanılmıyor: aynı yolda
+// rol bazlı dallanmak hem route mantığını hem yetkilendirmeyi bulanıklaştırır.
+// Ayrı yol = ayrı sorumluluk.
+app.use("/api/seller/products", productRoutes);
 
 // Faz 1 doğrulama route'ları — sadece development'ta mount edilir, prod'da hiç erişilemez
 if (isDev) {
