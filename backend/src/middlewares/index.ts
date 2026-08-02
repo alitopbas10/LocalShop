@@ -1,3 +1,6 @@
 export * from "@/middlewares/notFoundHandler";
 export * from "@/middlewares/errorHandler";
 export * from "@/middlewares/validate";
+export * from "@/middlewares/authenticate";
+export * from "@/middlewares/authorize";
+export * from "@/middlewares/authRateLimit";

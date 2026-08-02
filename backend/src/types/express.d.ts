@@ -1,3 +1,5 @@
+import type { UserRole } from "@/modules/auth/user.types";
+
 export {};
 
 declare global {
@@ -7,6 +9,14 @@ declare global {
         body?: unknown;
         query?: unknown;
         params?: unknown;
+      };
+      // Mongoose Document'i değil, controller'ların ihtiyaç duyduğu düz alanlar taşınır;
+      // böylece controller'lar model detayına bağımlı olmaz.
+      user?: {
+        id: string;
+        email: string;
+        name: string;
+        role: UserRole;
       };
     }
   }
