@@ -6,6 +6,7 @@ export const theme = {
     success: "#3a8f4c",
     danger: "#c1442e",
     warning: "#d9a441",
+    info: "#3d6b8c",
     text: "#2b2620",
     textMuted: "#6b6255",
     background: "#faf7f2",
