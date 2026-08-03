@@ -7,6 +7,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Modal } from "@/com
 import { getFulfillmentAction } from "@/features/seller/fulfillmentAction";
 import { useApi } from "@/hooks/useApi";
 import { useMutation } from "@/hooks/useMutation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/useToast";
 import { paths } from "@/routes/paths";
 import { ApiError } from "@/services/apiError";
@@ -55,11 +56,18 @@ const OtherSellersNote = styled.p`
   margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
+// Gerçek bir <table> masaüstünde, kart listesi mobilde (bkz. SellerProductListPage.tsx'
+// teki aynı desen): iki ayrı markup, CSS ile hangisi görünecek seçilir.
 const TableWrapper = styled.div`
+  display: none;
   overflow-x: auto;
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.md};
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    display: block;
+  }
 `;
 
 const Table = styled.table`
@@ -81,6 +89,50 @@ const Td = styled.td`
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
   color: ${({ theme }) => theme.colors.text};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const CardList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    display: none;
+  }
+`;
+
+const ItemCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => theme.spacing.md};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+`;
+
+const ItemCardHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ItemCardName = styled.span`
+  font-weight: ${({ theme }) => theme.fontWeights.semibold};
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const ItemCardMeta = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  color: ${({ theme }) => theme.colors.textMuted};
+`;
+
+const ItemCardTotal = styled.span`
+  font-weight: ${({ theme }) => theme.fontWeights.semibold};
+  color: ${({ theme }) => theme.colors.text};
 `;
 
 const TotalRow = styled.div`
@@ -126,6 +178,8 @@ export default function SellerOrderDetailPage() {
     refetch,
   } = useApi(() => sellerOrderService.getById(id ?? ""), [id], { enabled: Boolean(id) });
 
+  usePageTitle(order ? `Sipariş ${order.orderNumber}` : "Sipariş Detayı");
+
   const { mutate: updateFulfillment, isLoading: isUpdating } = useMutation(sellerOrderService.updateFulfillment);
 
   const action = order ? getFulfillmentAction(order) : null;
@@ -155,6 +209,7 @@ export default function SellerOrderDetailPage() {
   if (error instanceof ApiError && error.code === "NOT_FOUND") {
     return (
       <EmptyState
+        titleAs="h1"
         title="Sipariş bulunamadı"
         description="Bu sipariş size ait değil ya da hiç var olmamış olabilir."
         action={<OrdersLink to={paths.SELLER_ORDERS}>Siparişlere Dön</OrdersLink>}
@@ -163,7 +218,7 @@ export default function SellerOrderDetailPage() {
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={refetch} />;
+    return <ErrorState error={error} onRetry={refetch} titleAs="h1" />;
   }
 
   if (!order) {
@@ -217,6 +272,23 @@ export default function SellerOrderDetailPage() {
             </tbody>
           </Table>
         </TableWrapper>
+
+        <CardList>
+          {order.items.map((item) => (
+            <ItemCard key={item.productId}>
+              <ItemCardHeader>
+                <ItemCardName>{item.name}</ItemCardName>
+                <FulfillmentStatusBadge status={item.fulfillmentStatus} />
+              </ItemCardHeader>
+              <ItemCardMeta>
+                <span>
+                  {formatPrice(item.price)} × {item.quantity}
+                </span>
+                <ItemCardTotal>{formatPrice(item.lineTotal)}</ItemCardTotal>
+              </ItemCardMeta>
+            </ItemCard>
+          ))}
+        </CardList>
 
         {/* order.totalPrice bu görünümde hiç yok (backend zaten dönmüyor): diğer
             satıcıların tutarını da içerir. Gösterilecek tek doğru rakam sellerSubtotal. */}

@@ -57,11 +57,20 @@ const Actions = styled.div`
 `;
 
 const CancelLink = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.lg}`};
   border-radius: ${({ theme }) => theme.radii.md};
   border: 1px solid ${({ theme }) => theme.colors.border};
   color: ${({ theme }) => theme.colors.text};
   font-weight: ${({ theme }) => theme.fontWeights.medium};
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
 `;
 
 export default function PaymentFailureScreen({ reason, orderId, onRetry }: PaymentFailureScreenProps) {

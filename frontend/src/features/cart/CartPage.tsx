@@ -6,6 +6,7 @@ import CartIssuesBanner from "@/features/cart/CartIssuesBanner";
 import CartLineItem from "@/features/cart/CartLineItem";
 import CartSummary from "@/features/cart/CartSummary";
 import { useCart } from "@/hooks/useCart";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { paths } from "@/routes/paths";
 import type { CartIssue } from "@/types/models";
 
@@ -56,6 +57,8 @@ const CatalogLink = styled(Link)`
 `;
 
 export default function CartPage() {
+  usePageTitle("Sepetim");
+
   // Sepet verisi tamamen CartContext'ten okunur; bu sayfa kendi başına bir istek atmaz
   // (CartProvider zaten authenticate + customer durumunda sepeti otomatik yüklüyor,
   // bkz. CartContext.tsx).
@@ -66,12 +69,13 @@ export default function CartPage() {
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={refreshCart} />;
+    return <ErrorState error={error} onRetry={refreshCart} titleAs="h1" />;
   }
 
   if (!cart || cart.items.length === 0) {
     return (
       <EmptyState
+        titleAs="h1"
         title="Sepetiniz boş"
         description="Katalogdan beğendiğiniz ürünleri sepetinize ekleyin."
         action={<CatalogLink to={paths.PRODUCTS}>Kataloğa git</CatalogLink>}

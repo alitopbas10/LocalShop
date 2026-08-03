@@ -49,13 +49,20 @@ const Message = styled.p`
 `;
 
 const CloseButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Dokunma hedefi en az 44x44px olsun diye; kart dar olduğundan negatif margin ile
+     komşu içeriğin genişliğini büyütmeden bu alan telafi edilir. */
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin: -${({ theme }) => theme.spacing.sm} -${({ theme }) => theme.spacing.sm} -${({ theme }) => theme.spacing.sm} 0;
   background: transparent;
   border: none;
   color: ${({ theme }) => theme.colors.textMuted};
   cursor: pointer;
   font-size: ${({ theme }) => theme.fontSizes.md};
   line-height: 1;
-  padding: 0;
 
   &:hover {
     color: ${({ theme }) => theme.colors.text};

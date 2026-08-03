@@ -6,6 +6,11 @@ export interface EmptyStateProps {
   title: string;
   description?: string;
   action?: ReactNode;
+  // Bazı sayfalarda boş durum erken return ile tüm sayfanın yerine geçer ve sayfanın
+  // kendi <h1>'i hiç render edilmez; bu durumda "h1" verilmezse sayfada atlanmış bir
+  // başlık seviyesi (h1 yokken h2) oluşur. Varsayılan "h2": normal kullanımda zaten bir
+  // sayfa başlığının ALTINDA (bir bölüm sonucu olarak) gösterilir.
+  titleAs?: "h1" | "h2";
 }
 
 const Wrapper = styled.div`
@@ -37,11 +42,11 @@ const ActionWrapper = styled.div`
   margin-top: ${({ theme }) => theme.spacing.sm};
 `;
 
-export default function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+export default function EmptyState({ icon, title, description, action, titleAs = "h2" }: EmptyStateProps) {
   return (
     <Wrapper>
       {icon && <IconWrapper aria-hidden="true">{icon}</IconWrapper>}
-      <Title>{title}</Title>
+      <Title as={titleAs}>{title}</Title>
       {description && <Description>{description}</Description>}
       {action && <ActionWrapper>{action}</ActionWrapper>}
     </Wrapper>

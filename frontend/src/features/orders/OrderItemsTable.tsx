@@ -34,11 +34,20 @@ function groupBySeller(items: OrderItem[], sellerIds: string[]): SellerGroup[] {
   });
 }
 
+// Gerçek bir <table> masaüstünde, kart listesi mobilde: ikisi de aynı veriden render
+// edilir ama farklı görsel yapılar olduğu için (satır vs. kart) tek bir adaptif markup
+// yerine iki ayrı markup tutulur, CSS ile hangisinin görüneceği seçilir (bkz.
+// SellerProductListPage.tsx'teki aynı desen).
 const TableWrapper = styled.div`
+  display: none;
   overflow-x: auto;
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.md};
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    display: block;
+  }
 `;
 
 const Table = styled.table`
@@ -60,6 +69,51 @@ const Td = styled.td`
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
   color: ${({ theme }) => theme.colors.text};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const CardList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    display: none;
+  }
+`;
+
+const ItemCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+`;
+
+const ItemCardHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ItemCardName = styled.span`
+  font-weight: ${({ theme }) => theme.fontWeights.semibold};
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const ItemCardMeta = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  color: ${({ theme }) => theme.colors.textMuted};
+`;
+
+const ItemCardTotal = styled.span`
+  font-weight: ${({ theme }) => theme.fontWeights.semibold};
+  color: ${({ theme }) => theme.colors.text};
 `;
 
 const SellerGroupBlock = styled.div`
@@ -90,38 +144,58 @@ interface ItemsTableProps {
 
 function ItemsTable({ items, showRowStatus }: ItemsTableProps) {
   return (
-    <TableWrapper>
-      <Table>
-        <thead>
-          <tr>
-            <Th>Ürün</Th>
-            <Th>Birim Fiyat</Th>
-            <Th>Adet</Th>
-            <Th>Satır Toplamı</Th>
-            {showRowStatus && <Th>Durum</Th>}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.productId}>
-              {/* Ürün adı SNAPSHOT'tır, güncel üründen gelmez — bilerek link yapılmadı.
-                  Ürün silinmiş ya da satıcı tarafından pasifleştirilmiş olabilir; bir link
-                  koymak isteyen biri çıkarsa bu yorumu görsün: sonuç ya 404 ya da yanlış
-                  (güncel) bir fiyat/ad gösteren bir sayfa olur, ikisi de burada anlamsızdır. */}
-              <Td>{item.name}</Td>
-              <Td>{formatPrice(item.price)}</Td>
-              <Td>{item.quantity}</Td>
-              <Td>{formatPrice(item.lineTotal)}</Td>
-              {showRowStatus && (
-                <Td>
-                  <FulfillmentStatusBadge status={item.fulfillmentStatus} />
-                </Td>
-              )}
+    <>
+      <TableWrapper>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Ürün</Th>
+              <Th>Birim Fiyat</Th>
+              <Th>Adet</Th>
+              <Th>Satır Toplamı</Th>
+              {showRowStatus && <Th>Durum</Th>}
             </tr>
-          ))}
-        </tbody>
-      </Table>
-    </TableWrapper>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.productId}>
+                {/* Ürün adı SNAPSHOT'tır, güncel üründen gelmez — bilerek link yapılmadı.
+                    Ürün silinmiş ya da satıcı tarafından pasifleştirilmiş olabilir; bir
+                    link koymak isteyen biri çıkarsa bu yorumu görsün: sonuç ya 404 ya da
+                    yanlış (güncel) bir fiyat/ad gösteren bir sayfa olur, ikisi de burada
+                    anlamsızdır. */}
+                <Td>{item.name}</Td>
+                <Td>{formatPrice(item.price)}</Td>
+                <Td>{item.quantity}</Td>
+                <Td>{formatPrice(item.lineTotal)}</Td>
+                {showRowStatus && (
+                  <Td>
+                    <FulfillmentStatusBadge status={item.fulfillmentStatus} />
+                  </Td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableWrapper>
+
+      <CardList>
+        {items.map((item) => (
+          <ItemCard key={item.productId}>
+            <ItemCardHeader>
+              <ItemCardName>{item.name}</ItemCardName>
+              {showRowStatus && <FulfillmentStatusBadge status={item.fulfillmentStatus} />}
+            </ItemCardHeader>
+            <ItemCardMeta>
+              <span>
+                {formatPrice(item.price)} × {item.quantity}
+              </span>
+              <ItemCardTotal>{formatPrice(item.lineTotal)}</ItemCardTotal>
+            </ItemCardMeta>
+          </ItemCard>
+        ))}
+      </CardList>
+    </>
   );
 }
 

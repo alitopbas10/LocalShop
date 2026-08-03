@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui";
 import ProductForm, { type ProductFormSubmitValues } from "@/features/seller/ProductForm";
 import { useApi } from "@/hooks/useApi";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/useToast";
 import { paths } from "@/routes/paths";
 import { ApiError } from "@/services/apiError";
@@ -32,6 +33,8 @@ export default function SellerProductEditPage() {
     isLoading,
     refetch,
   } = useApi(() => sellerProductService.getById(id ?? ""), [id], { enabled: Boolean(id) });
+
+  usePageTitle(product ? `Düzenle — ${product.name}` : "Ürünü Düzenle");
 
   async function handleSubmit(values: ProductFormSubmitValues) {
     if (!product) {
@@ -90,6 +93,7 @@ export default function SellerProductEditPage() {
   if (error instanceof ApiError && error.code === "FORBIDDEN") {
     return (
       <EmptyState
+        titleAs="h1"
         title="Bu ürüne erişim yetkiniz yok"
         description="Bu ürün başka bir satıcıya ait."
         action={<BackLink to={paths.SELLER_PRODUCTS}>Ürünlerime Dön</BackLink>}
@@ -100,6 +104,7 @@ export default function SellerProductEditPage() {
   if (error instanceof ApiError && error.code === "NOT_FOUND") {
     return (
       <EmptyState
+        titleAs="h1"
         title="Ürün bulunamadı"
         description="Aradığınız ürün silinmiş ya da hiç var olmamış olabilir."
         action={<BackLink to={paths.SELLER_PRODUCTS}>Ürünlerime Dön</BackLink>}
@@ -108,7 +113,7 @@ export default function SellerProductEditPage() {
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={refetch} />;
+    return <ErrorState error={error} onRetry={refetch} titleAs="h1" />;
   }
 
   if (!product) {

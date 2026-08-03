@@ -7,6 +7,7 @@ import ProductImage from "@/features/catalog/ProductImage";
 import { CATEGORY_LABELS, CATEGORY_VALUES } from "@/features/catalog/categoryPresentation";
 import { useApi } from "@/hooks/useApi";
 import { useMutation } from "@/hooks/useMutation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/useToast";
 import { paths, sellerProductEdit } from "@/routes/paths";
 import { getErrorMessage } from "@/services/errorMessages";
@@ -78,12 +79,21 @@ const Title = styled.h1`
 `;
 
 const NewProductLink = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.lg}`};
   border-radius: ${({ theme }) => theme.radii.md};
   background: ${({ theme }) => theme.colors.primary};
   color: ${({ theme }) => theme.colors.surface};
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
   white-space: nowrap;
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
 `;
 
 const FiltersRow = styled.div`
@@ -156,6 +166,7 @@ const EditLink = styled(Link)`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 2.75rem;
   padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.md}`};
   border-radius: ${({ theme }) => theme.radii.md};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -239,6 +250,8 @@ const ModalActions = styled.div`
 `;
 
 export default function SellerProductListPage() {
+  usePageTitle("Ürünlerim");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const [targetProduct, setTargetProduct] = useState<SellerProduct | null>(null);

@@ -43,8 +43,9 @@ const Nav = styled.nav`
 `;
 
 const PageButton = styled.button<{ $active: boolean }>`
-  min-width: 2rem;
-  height: 2rem;
+  /* Dokunma hedefi en az 44x44px olsun diye 2rem yerine 2.75rem. */
+  min-width: 2.75rem;
+  height: 2.75rem;
   padding: 0 ${({ theme }) => theme.spacing.xs};
   border-radius: ${({ theme }) => theme.radii.sm};
   border: 1px solid

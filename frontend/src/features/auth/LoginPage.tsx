@@ -6,6 +6,7 @@ import { Button, Input } from "@/components/ui";
 import AuthLayout from "@/features/auth/AuthLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation } from "@/hooks/useMutation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { paths } from "@/routes/paths";
 import { getErrorMessage } from "@/services/errorMessages";
 
@@ -62,6 +63,8 @@ interface LocationState {
 }
 
 export default function LoginPage() {
+  usePageTitle("Giriş Yap");
+
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

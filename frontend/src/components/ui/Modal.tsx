@@ -52,13 +52,18 @@ const Title = styled.h2`
 `;
 
 const CloseButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Dokunma hedefi en az 44x44px olsun diye. */
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   background: transparent;
   border: none;
   font-size: ${({ theme }) => theme.fontSizes.lg};
   line-height: 1;
   color: ${({ theme }) => theme.colors.textMuted};
   cursor: pointer;
-  padding: ${({ theme }) => theme.spacing.xs};
   border-radius: ${({ theme }) => theme.radii.sm};
 
   &:hover {
@@ -72,10 +77,20 @@ const CloseButton = styled.button`
   }
 `;
 
+// Modal içinde Tab ile odaklanılabilecek elemanları bulmak için kullanılır. gizli
+// (display:none/visibility:hidden, offsetParent===null ile tespit edilir) elemanlar
+// odak tuzağına dahil edilmez, aksi halde Tab görünmeyen bir elemana takılıp kalabilir.
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
 
+  // Odak tuzağı: Modal açıkken Tab, arkadaki sayfaya KAÇAMAZ — ilk/son odaklanabilir
+  // eleman sınırında döngü yapar. Bu olmadan (önceki davranış) klavye kullanıcısı Tab'a
+  // basa basa modalın arkasındaki, görünmeyen/örtülü sayfa içeriğine odaklanabiliyordu.
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -84,6 +99,31 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !contentRef.current) {
+        return;
+      }
+
+      const focusable = Array.from(
+        contentRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => element.offsetParent !== null);
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     }
 
@@ -105,9 +145,16 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     };
   }, [isOpen]);
 
+  // Açılışta odak modalın içine taşınır (ve nereden açıldığı hatırlanır); kapanışta
+  // odak modalı TETİKLEYEN elemana geri döner — aksi halde klavye/ekran okuyucu
+  // kullanıcısı modal kapandıktan sonra sayfanın en başına (body) fırlatılmış olurdu.
   useEffect(() => {
     if (isOpen) {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
       contentRef.current?.focus();
+    } else {
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
     }
   }, [isOpen]);
 

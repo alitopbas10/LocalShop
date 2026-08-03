@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 
 import ProductForm, { type ProductFormSubmitValues } from "@/features/seller/ProductForm";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/useToast";
 import { paths } from "@/routes/paths";
 import * as sellerProductService from "@/services/sellerProductService";
@@ -13,6 +14,8 @@ const Title = styled.h1`
 `;
 
 export default function SellerProductNewPage() {
+  usePageTitle("Yeni Ürün");
+
   const navigate = useNavigate();
   const { showToast } = useToast();
 

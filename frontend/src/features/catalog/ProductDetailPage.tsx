@@ -9,6 +9,7 @@ import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { useMutation } from "@/hooks/useMutation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/useToast";
 import { paths } from "@/routes/paths";
 import { ApiError } from "@/services/apiError";
@@ -107,6 +108,8 @@ export default function ProductDetailPage() {
     refetch,
   } = useApi(() => catalogService.getProduct(id ?? ""), [id], { enabled: Boolean(id) });
 
+  usePageTitle(product?.name ?? "Ürün");
+
   const [quantity, setQuantity] = useState(1);
 
   // Farklı bir ürüne geçildiğinde (ör. "benzer ürünler" gibi bir bağlantıyla) önceki
@@ -151,6 +154,7 @@ export default function ProductDetailPage() {
   if (error instanceof ApiError && error.code === "NOT_FOUND") {
     return (
       <EmptyState
+        titleAs="h1"
         title="Ürün bulunamadı"
         description="Aradığınız ürün kaldırılmış veya hiç var olmamış olabilir."
         action={<BackLink to={paths.PRODUCTS}>Kataloğa dön</BackLink>}
@@ -159,7 +163,7 @@ export default function ProductDetailPage() {
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={refetch} />;
+    return <ErrorState error={error} onRetry={refetch} titleAs="h1" />;
   }
 
   if (!product) {

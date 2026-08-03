@@ -47,6 +47,9 @@ const Nav = styled.nav`
 `;
 
 const NavItem = styled(Link)<{ $active: boolean }>`
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
   border-radius: ${({ theme }) => theme.radii.md};
   font-weight: ${({ theme, $active }) => ($active ? theme.fontWeights.semibold : theme.fontWeights.medium)};

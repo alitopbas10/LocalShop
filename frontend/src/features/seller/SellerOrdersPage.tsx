@@ -11,6 +11,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Modal, Pagination, 
 import { getFulfillmentAction } from "@/features/seller/fulfillmentAction";
 import { useApi } from "@/hooks/useApi";
 import { useMutation } from "@/hooks/useMutation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/useToast";
 import { sellerOrderDetail } from "@/routes/paths";
 import { getErrorMessage } from "@/services/errorMessages";
@@ -147,6 +148,8 @@ const ModalActions = styled.div`
 `;
 
 export default function SellerOrdersPage() {
+  usePageTitle("Gelen Siparişler");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);

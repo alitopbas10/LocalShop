@@ -8,6 +8,7 @@ import CardForm from "@/features/payment/CardForm";
 import PaymentHistory from "@/features/payment/PaymentHistory";
 import { useApi } from "@/hooks/useApi";
 import { useCart } from "@/hooks/useCart";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { orderDetail } from "@/routes/paths";
 import * as orderService from "@/services/orderService";
 import type { PayOrderResult } from "@/types/models";
@@ -82,6 +83,8 @@ export default function PaymentPage() {
     refetch,
   } = useApi(() => orderService.getOrder(orderId ?? ""), [orderId], { enabled: Boolean(orderId) });
 
+  usePageTitle(order ? `Ödeme — ${order.orderNumber}` : "Ödeme");
+
   function handleAttemptRecorded(result: PayOrderResult) {
     // Ödeme geçmişi tablosu kendi verisini bir kez çeker (bkz. PaymentHistory); yeni bir
     // deneme (başarılı ya da başarısız) kaydedildiğinde o listeyi zorla yeniden monte
@@ -100,7 +103,7 @@ export default function PaymentPage() {
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={refetch} />;
+    return <ErrorState error={error} onRetry={refetch} titleAs="h1" />;
   }
 
   if (!order) {

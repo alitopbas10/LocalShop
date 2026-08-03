@@ -5,7 +5,7 @@ import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 
 const Main = styled.main`
-  max-width: 1200px;
+  max-width: ${({ theme }) => theme.layout.maxWidth};
   margin: 0 auto;
   padding: ${({ theme }) => theme.spacing.lg};
 

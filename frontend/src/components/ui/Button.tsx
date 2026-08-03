@@ -87,6 +87,10 @@ const StyledButton = styled.button<{
   justify-content: center;
   gap: ${({ theme }) => theme.spacing.sm};
   width: ${({ $fullWidth }) => ($fullWidth ? "100%" : "auto")};
+  /* Dokunma hedefi en az 44x44px olsun diye: küçük varyantların (sm) padding'i tek
+     başına bunu karşılamıyor, min-height boyut farkı görsel kalsın diye tüm boyutlara
+     tek satırda uygulanır. */
+  min-height: 2.75rem;
   border: 1px solid transparent;
   border-radius: ${({ theme }) => theme.radii.md};
   font-weight: ${({ theme }) => theme.fontWeights.semibold};

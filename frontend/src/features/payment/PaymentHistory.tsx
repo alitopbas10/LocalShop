@@ -20,11 +20,18 @@ const SectionTitle = styled.h2`
   margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
+// Gerçek bir <table> masaüstünde, kart listesi mobilde (bkz. SellerProductListPage.tsx
+// / OrderItemsTable.tsx'teki aynı desen): iki ayrı markup, CSS ile hangisi görünecek seçilir.
 const TableWrapper = styled.div`
+  display: none;
   overflow-x: auto;
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.md};
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    display: block;
+  }
 `;
 
 const Table = styled.table`
@@ -51,6 +58,43 @@ const Td = styled.td`
   &:last-child {
     white-space: normal;
   }
+`;
+
+const CardList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+
+  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    display: none;
+  }
+`;
+
+const PaymentCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+`;
+
+const PaymentCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const PaymentCardMeta = styled.span`
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  color: ${({ theme }) => theme.colors.textMuted};
+`;
+
+const PaymentCardReason = styled.span`
+  font-size: ${({ theme }) => theme.fontSizes.xs};
+  color: ${({ theme }) => theme.colors.textMuted};
 `;
 
 const InfoText = styled.p`
@@ -111,6 +155,25 @@ export default function PaymentHistory({ orderId }: PaymentHistoryProps) {
           </tbody>
         </Table>
       </TableWrapper>
+
+      <CardList>
+        {payments.map((paymentAttempt) => (
+          <PaymentCard key={paymentAttempt._id}>
+            <PaymentCardHeader>
+              <PaymentCardMeta>
+                {paymentAttempt.cardBrand} •••• {paymentAttempt.cardLast4}
+              </PaymentCardMeta>
+              <Badge variant={paymentAttempt.status === "SUCCEEDED" ? "success" : "danger"}>
+                {paymentAttempt.status === "SUCCEEDED" ? "Başarılı" : "Başarısız"}
+              </Badge>
+            </PaymentCardHeader>
+            <PaymentCardMeta>{formatDate(paymentAttempt.createdAt)}</PaymentCardMeta>
+            {paymentAttempt.failureReason && (
+              <PaymentCardReason>{FAILURE_MESSAGES[paymentAttempt.failureReason]}</PaymentCardReason>
+            )}
+          </PaymentCard>
+        ))}
+      </CardList>
     </Section>
   );
 }

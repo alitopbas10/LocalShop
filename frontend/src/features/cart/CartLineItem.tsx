@@ -83,8 +83,12 @@ const QuantityControl = styled.div`
 `;
 
 const StepButton = styled.button`
-  width: 1.75rem;
-  height: 1.75rem;
+  /* Dokunma hedefi en az 44x44px olsun diye. */
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: ${({ theme }) => theme.radii.sm};
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};

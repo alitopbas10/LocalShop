@@ -6,6 +6,7 @@ import { Button, EmptyState, ErrorState, LoadingState, Pagination } from "@/comp
 import ProductCard from "@/features/catalog/ProductCard";
 import ProductFilters, { hasActiveCatalogFilters, type CatalogFilters } from "@/features/catalog/ProductFilters";
 import { useApi } from "@/hooks/useApi";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import * as catalogService from "@/services/catalogService";
 import type { CatalogSort } from "@/services/catalogService";
 import { CATEGORY_VALUES } from "@/features/catalog/categoryPresentation";
@@ -87,12 +88,14 @@ const Grid = styled.div`
     grid-template-columns: repeat(3, 1fr);
   }
 
-  @media (min-width: 1280px) {
+  @media (min-width: ${({ theme }) => theme.breakpoints.wide}) {
     grid-template-columns: repeat(4, 1fr);
   }
 `;
 
 export default function ProductListPage() {
+  usePageTitle("Ürünler");
+
   const [searchParams, setSearchParams] = useSearchParams();
   // Filtre durumu React state'inde DEĞİL, URL'de tutulur: sayfa yenilendiğinde filtreler
   // kaybolmaz, link olduğu gibi paylaşılabilir, tarayıcının geri/ileri tuşları çalışır.

@@ -13,6 +13,7 @@ import OrderItemsTable from "@/features/orders/OrderItemsTable";
 import OrderTimeline from "@/features/orders/OrderTimeline";
 import { useApi } from "@/hooks/useApi";
 import { useMutation } from "@/hooks/useMutation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/useToast";
 import { payment, paths } from "@/routes/paths";
 import { ApiError } from "@/services/apiError";
@@ -104,6 +105,8 @@ export default function OrderDetailPage() {
     refetch,
   } = useApi(() => orderService.getOrder(id ?? ""), [id], { enabled: Boolean(id) });
 
+  usePageTitle(order ? `Sipariş ${order.orderNumber}` : "Sipariş Detayı");
+
   const { mutate: cancelOrder, isLoading: isCancelling } = useMutation(orderService.cancelOrder);
 
   async function handleCancel() {
@@ -130,6 +133,7 @@ export default function OrderDetailPage() {
   if (error instanceof ApiError && error.code === "NOT_FOUND") {
     return (
       <EmptyState
+        titleAs="h1"
         title="Sipariş bulunamadı"
         description="Aradığınız sipariş kaldırılmış veya hiç var olmamış olabilir."
         action={<OrdersLink to={paths.ORDERS}>Siparişlerime Dön</OrdersLink>}
@@ -140,6 +144,7 @@ export default function OrderDetailPage() {
   if (error instanceof ApiError && error.code === "FORBIDDEN") {
     return (
       <EmptyState
+        titleAs="h1"
         title="Bu siparişe erişim yetkiniz yok"
         description="Bu sipariş başka bir hesaba ait."
         action={<OrdersLink to={paths.ORDERS}>Siparişlerime Dön</OrdersLink>}
@@ -148,7 +153,7 @@ export default function OrderDetailPage() {
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={refetch} />;
+    return <ErrorState error={error} onRetry={refetch} titleAs="h1" />;
   }
 
   if (!order) {

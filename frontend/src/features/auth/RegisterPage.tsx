@@ -6,6 +6,7 @@ import { Button, Input } from "@/components/ui";
 import AuthLayout from "@/features/auth/AuthLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation } from "@/hooks/useMutation";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { paths } from "@/routes/paths";
 import { ApiError } from "@/services/apiError";
 import { getErrorMessage } from "@/services/errorMessages";
@@ -141,6 +142,8 @@ function validateClient(form: RegisterForm): Record<string, string> {
 }
 
 export default function RegisterPage() {
+  usePageTitle("Kayıt Ol");
+
   const { register } = useAuth();
   const navigate = useNavigate();
 

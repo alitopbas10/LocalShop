@@ -20,7 +20,10 @@ const Wrapper = styled.div`
 export default function LoadingState({ message }: LoadingStateProps) {
   return (
     <Wrapper>
-      <Spinner size="lg" />
+      {/* Spinner'ın kendi role="status" bölgesine sayfa-özel mesaj (varsa) label olarak
+          verilir; aksi halde ekran okuyucu yalnızca jenerik "Yükleniyor" duyurur, altındaki
+          görünür <p> (canlı bölgenin dışında olduğu için) hiç duyurulmazdı. */}
+      <Spinner size="lg" label={message ?? "Yükleniyor"} />
       {message && <p>{message}</p>}
     </Wrapper>
   );

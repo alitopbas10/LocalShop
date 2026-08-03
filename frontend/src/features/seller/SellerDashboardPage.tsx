@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
 import { Card, ErrorState, LoadingState } from "@/components/ui";
 import { useApi } from "@/hooks/useApi";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { paths } from "@/routes/paths";
 import * as sellerOrderService from "@/services/sellerOrderService";
 import * as sellerProductService from "@/services/sellerProductService";
@@ -79,19 +80,37 @@ const QuickActions = styled.div`
 `;
 
 const PrimaryLink = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.lg}`};
   border-radius: ${({ theme }) => theme.radii.md};
   background: ${({ theme }) => theme.colors.primary};
   color: ${({ theme }) => theme.colors.surface};
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
 `;
 
 const SecondaryLink = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.lg}`};
   border-radius: ${({ theme }) => theme.radii.md};
   border: 1px solid ${({ theme }) => theme.colors.border};
   color: ${({ theme }) => theme.colors.text};
   font-weight: ${({ theme }) => theme.fontWeights.medium};
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
 `;
 
 const SectionTitle = styled.h2`
@@ -147,6 +166,8 @@ const EmptyText = styled.p`
 `;
 
 export default function SellerDashboardPage() {
+  usePageTitle("Satıcı Paneli");
+
   const { data, error, isLoading, refetch } = useApi(fetchDashboardData, []);
 
   if (isLoading) {
@@ -154,7 +175,7 @@ export default function SellerDashboardPage() {
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={refetch} />;
+    return <ErrorState error={error} onRetry={refetch} titleAs="h1" />;
   }
 
   if (!data) {

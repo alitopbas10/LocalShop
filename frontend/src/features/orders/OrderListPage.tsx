@@ -8,6 +8,7 @@ import {
 } from "@/components/orders/OrderStatusBadge";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Pagination } from "@/components/ui";
 import { useApi } from "@/hooks/useApi";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { orderDetail, payment, paths } from "@/routes/paths";
 import * as orderService from "@/services/orderService";
 import type { Order, OrderStatus } from "@/types/models";
@@ -53,6 +54,9 @@ const TabRow = styled.div`
 `;
 
 const TabButton = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.md}`};
   border-radius: ${({ theme }) => theme.radii.full};
   border: 1px solid ${({ theme, $active }) => ($active ? theme.colors.primary : theme.colors.border)};
@@ -135,6 +139,8 @@ const CatalogLink = styled(Link)`
 `;
 
 export default function OrderListPage() {
+  usePageTitle("Siparişlerim");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
