@@ -12,6 +12,7 @@ import OrderListPage from "@/features/orders/OrderListPage";
 import PaymentPage from "@/features/payment/PaymentPage";
 import SellerDashboardPage from "@/features/seller/SellerDashboardPage";
 import SellerLayout from "@/features/seller/SellerLayout";
+import SellerOrderDetailPage from "@/features/seller/SellerOrderDetailPage";
 import SellerOrdersPage from "@/features/seller/SellerOrdersPage";
 import SellerProductEditPage from "@/features/seller/SellerProductEditPage";
 import SellerProductListPage from "@/features/seller/SellerProductListPage";
@@ -75,6 +76,7 @@ const router = createBrowserRouter([
           { path: relative(paths.SELLER_PRODUCT_NEW), element: <SellerProductNewPage /> },
           { path: relative(paths.SELLER_PRODUCT_EDIT), element: <SellerProductEditPage /> },
           { path: relative(paths.SELLER_ORDERS), element: <SellerOrdersPage /> },
+          { path: relative(paths.SELLER_ORDER_DETAIL), element: <SellerOrderDetailPage /> },
         ],
       },
       { path: paths.NOT_FOUND, element: <NotFoundPage /> },

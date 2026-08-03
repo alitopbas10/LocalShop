@@ -200,6 +200,9 @@ export interface SellerOrder {
   items: SellerOrderItem[];
   sellerSubtotal: number;
   itemCount: number;
+  // Diğer satıcıların satırları hiç sızdırılmaz; bu yalnızca "var mı yok mu" bilgisidir,
+  // sellerSubtotal'ın sipariş toplamından neden farklı olabileceğini açıklamak içindir.
+  hasOtherSellers: boolean;
 }
 
 // ---- PAYMENT ----

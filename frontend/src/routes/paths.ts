@@ -15,6 +15,7 @@ export const paths = {
   SELLER_PRODUCT_NEW: "/seller/products/new",
   SELLER_PRODUCT_EDIT: "/seller/products/:id/edit",
   SELLER_ORDERS: "/seller/orders",
+  SELLER_ORDER_DETAIL: "/seller/orders/:id",
   NOT_FOUND: "*",
 } as const;
 
@@ -32,4 +33,8 @@ export function payment(orderId: string): string {
 
 export function sellerProductEdit(id: string): string {
   return `/seller/products/${id}/edit`;
+}
+
+export function sellerOrderDetail(id: string): string {
+  return `/seller/orders/${id}`;
 }
