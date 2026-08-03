@@ -2,7 +2,8 @@ import { createContext, useCallback, useEffect, useMemo, useState, type ReactNod
 
 import { useAuth } from "@/hooks/useAuth";
 import * as cartService from "@/services/cartService";
-import type { CartView } from "@/types/models";
+import * as orderService from "@/services/orderService";
+import type { CartView, Order } from "@/types/models";
 
 interface CartContextValue {
   cart: CartView | null;
@@ -14,6 +15,7 @@ interface CartContextValue {
   updateItem: (productId: string, quantity: number) => Promise<void>;
   removeItem: (productId: string) => Promise<void>;
   clearCart: () => Promise<void>;
+  createOrderFromCart: () => Promise<Order>;
 }
 
 export const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -84,6 +86,33 @@ export function CartProvider({ children }: CartProviderProps) {
     setCart(result);
   }, []);
 
+  // Sipariş oluşturma sepeti SUNUCUDA da temizler (order.service.ts, aynı transaction
+  // içinde). Sayfanın orderService'i doğrudan çağırması bu gerçeği CartContext'ten
+  // saklardı: header'daki adet rozeti ve sepet sayfası hep CartContext'ten okur, o da
+  // habersiz kalınca eski (dolu) sepeti göstermeye devam ederdi. Sepeti YÖNETEN bağlam,
+  // sepeti DEĞİŞTİREN her işlemden geçmelidir — iki kaynağın senkron kalmasının tek yolu bu.
+  const createOrderFromCart = useCallback(async (): Promise<Order> => {
+    try {
+      const order = await orderService.createOrder();
+      // Önce iyimser olarak yerel state hemen boşaltılır (kullanıcı header'da/sepet
+      // sayfasında beklemeden doğru sonucu görsün), ardından refreshCart ile sunucudan
+      // doğrulanır — sunucu zaten boş dönecektir, bu sadece kaynağı tek noktada tutar.
+      setCart((current) =>
+        current
+          ? { ...current, items: [], itemCount: 0, distinctItemCount: 0, subtotal: 0, hasIssues: false, issues: [] }
+          : current,
+      );
+      await refreshCart();
+      return order;
+    } catch (err) {
+      // INSUFFICIENT_STOCK gibi bir hata, sepeti kontrol ettiğimiz an ile sipariş
+      // oluşturma anı arasında bir şeyin değiştiğini gösterir; kullanıcı eski değil
+      // güncel sepeti görmeli.
+      await refreshCart();
+      throw err;
+    }
+  }, [refreshCart]);
+
   const itemCount = cart?.itemCount ?? 0;
 
   const value = useMemo<CartContextValue>(
@@ -97,8 +126,9 @@ export function CartProvider({ children }: CartProviderProps) {
       updateItem,
       removeItem,
       clearCart,
+      createOrderFromCart,
     }),
-    [cart, isLoading, error, itemCount, refreshCart, addItem, updateItem, removeItem, clearCart],
+    [cart, isLoading, error, itemCount, refreshCart, addItem, updateItem, removeItem, clearCart, createOrderFromCart],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
