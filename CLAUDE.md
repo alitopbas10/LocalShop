@@ -45,6 +45,25 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 - Yetki yetersizliğinde (rol uygun değil) login'e yönlendirme YAPILMAZ, "yetkiniz yok" (403)
   ekranı gösterilir — kullanıcı zaten giriş yapmıştır, sorun kimlik doğrulama değil yetkidir
 
+## Sayfa Kuralları
+- Filtre ve sayfalama durumu URL'de tutulur (useSearchParams), React state'inde değil —
+  sayfa yenilendiğinde filtre kaybolmaz, link paylaşılabilir, geri/ileri tuşu çalışır
+- Her async ekranda loading / error / empty üçlüsü eksiksiz olur; yalnızca "veri geldi"
+  durumunu ele almak yeterli değildir (bkz. Frontend Kuralları)
+- Sipariş satırlarında ürün adı ve fiyatı SNAPSHOT'tır; ürün detayına link verilmez —
+  ürün sonradan silinmiş/değişmiş olabilir, link ya 404 üretir ya da yanlış (güncel) bir
+  fiyat gösteren bir sayfaya çıkar, ikisi de sipariş satırının anlamıyla çelişir
+- Satıcı ekranlarında order.totalPrice DEĞİL sellerSubtotal gösterilir — totalPrice
+  siparişteki diğer satıcıların satırlarını da içerir, bir satıcının kendi payı olmayan
+  bir tutarı görmesi hem yanıltıcı hem de diğer satıcının cirosunu dolaylı sızdırır
+- Ödeme sayfasında idempotency anahtarı mount başına BİR KEZ üretilir (useRef, guard'lı;
+  useState kullanılırsa yeniden üretilme riski doğar) ve her denemede aynı anahtar
+  gönderilir; yalnızca başarısız bir denemeden sonra "Tekrar Dene" anahtarı bilinçli
+  olarak yeniler — aksi halde retry aynı (başarısız) sonucu tekrar döner
+- Backend'in reddedeceği aksiyonlar için buton gösterilmez (durum makinesine uy) —
+  kullanıcıya tıklayınca 409/403 alacağı bir buton sunmak yerine, o aksiyon o durumda
+  mevcut değilse buton hiç render edilmez (ör. ödenmemiş bir siparişte "Kargoya Ver" yok)
+
 ## Güvenlik Kuralları
 
 ### Middleware Sırası (app.ts)

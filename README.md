@@ -123,6 +123,107 @@ src/
    - Backend: [http://localhost:5000/health](http://localhost:5000/health)
    - Frontend: [http://localhost:5173](http://localhost:5173)
 
+## Kullanıcı Akışları
+
+Case study'nin istediği 7 uçtan uca akış ve her birinin hangi sayfada, hangi adımlarla
+gerçekleştiği. Kendi ortamınızda denerken [Örnek Veri](#örnek-veri) bölümündeki seed
+hesaplarını kullanabilirsiniz.
+
+### 1. Satıcı platforma kayıt olur — `/register`
+
+1. `/register` sayfasına git.
+2. "Satıcı olarak kayıt ol" kartını seç (varsayılan seçim customer'dır, bilerek — bir
+   pazaryerinde çoğunluk alıcıdır).
+3. Ad (min 2), e-posta, şifre (min 8, en az bir harf + bir rakam) ve şifre tekrarını
+   doldur. İstemci doğrulaması backend kurallarını yansıtır ama onun yerine geçmez —
+   asıl kabul/red kararı her zaman backend'de verilir.
+4. "Kayıt Ol" → `POST /api/auth/register` (`role: "seller"` ile).
+5. Başarılı kayıtta otomatik giriş yapılır (backend token döner) ve ana sayfaya
+   yönlendirilir; Header'da artık "Satıcı Paneli" linki ve rol rozeti görünür.
+
+### 2. Satıcı ürün ekler — `/seller/products/new`
+
+1. Header'daki "Satıcı Paneli" linkinden `/seller`'a, oradaki "Yeni Ürün Ekle" hızlı
+   aksiyonundan (veya doğrudan `/seller/products` → "Yeni Ürün Ekle") `/seller/products/new`'e git.
+2. `ProductForm`'u doldur: ad, açıklama (canlı karakter sayaçlı), fiyat, stok, kategori
+   (select), opsiyonel görsel URL — girilirse canlı önizleme gösterilir, URL bozuksa
+   önizleme yerine "Görsel yüklenemedi" yazar.
+3. "Ürünü Ekle" → `POST /api/seller/products`. Sahip alanı (`sellerId`) request body'sinden
+   asla okunmaz, `req.user.id`'den atanır.
+4. Başarılı eklemede `/seller/products` listesine dönülür, toast gösterilir; yeni ürün
+   varsayılan olarak `isActive: true`'dur.
+
+### 3. Kullanıcı ürünleri görüntüler — `/products`
+
+1. `/products` (veya `/`) sayfasına git — herkese açık, giriş gerektirmez.
+2. Arama kutusunu kullan (400ms debounce), kategoriye/fiyat aralığına göre filtrele,
+   sırala. Tüm filtre durumu URL'de tutulur (`?search=...&category=...`) — sayfa
+   yenilendiğinde veya link paylaşıldığında filtreler kaybolmaz.
+3. Yalnızca `isActive: true` ürünler listelenir; bir satıcı ürününü pasifleştirirse
+   (adım 2'nin tersi) burada anında kaybolur.
+
+### 4. Kullanıcı sepete ürün ekler — `/products/:id`
+
+1. Katalogdaki bir ürün kartına tıkla → `/products/:id`.
+2. Adet seç (1 ile `min(stok, 99)` arası), "Sepete Ekle"ye bas.
+3. **Giriş yapılmamışsa** `/login`'e yönlendirilir; nereden geldiği (`state.from`) taşınır,
+   giriş sonrası otomatik olarak bu ürün sayfasına geri dönülür.
+4. **Seller hesabıyla girişse** buton devre dışıdır, altında "Satıcı hesabıyla alışveriş
+   yapılamaz" açıklaması gösterilir.
+5. **Stok 0 ise** buton yine devre dışıdır.
+6. Başarılı eklemede toast gösterilir ve Header'daki sepet rozeti (`itemCount`) anında
+   güncellenir (`CartContext`, backend'in döndürdüğü güncel sepeti doğrudan state'e yazar).
+
+### 5. Kullanıcı sipariş oluşturur — `/cart`
+
+1. `/cart` sayfasına git.
+2. Bir satırın adedini `-`/`+` ile değiştir; satır bu sırada kilitli görünür (çift
+   tıklama güvenli). Adet 0'a inerse satır sepetten kalkar.
+3. Sorunlu bir satır varsa (ürün artık satışta değil / stok yetersiz) listenin üstünde
+   belirgin bir uyarı bloğu ve her sorun için tek tıkla çözüm butonu ("Sepetten çıkar" /
+   "Adedi N yap") görünür; özet paneldeki ara toplam sorunlu satırları hiç içermez.
+4. "Siparişi Tamamla" — sepette çözülmemiş bir sorun varsa buton devre dışıdır ve altında
+   sebep yazar. Tıklanınca `CartContext.createOrderFromCart()` → `POST /api/orders`
+   çağrılır; sipariş içeriği İSTEMCİDEN gönderilmez, sunucu o anki sepeti okuyup doğrular.
+5. Başarılı oluşturmada sepet iyimser olarak hemen boşaltılır (Header rozeti anında `0`
+   olur) ve `/payment/:orderId`'ye yönlendirilir.
+
+### 6. Kullanıcı sipariş için ödeme yapar — `/payment/:orderId`
+
+1. Sipariş özeti (numara, satırlar, toplam tutar, durum rozeti) gösterilir.
+2. Kart formunu doldur: numara (yazarken otomatik 4'lü gruplanır), kart üzerindeki isim
+   (büyük harfe çevrilir), son kullanma (`MM/YY`, `/` otomatik eklenir), CVV. Yanındaki
+   "Test Kartları" kutusundan bir düğmeye basarak formu tek tıkla doldurabilirsin
+   (`4242 4242 4242 4242` başarılı, `4000 0000 0000 0000` başarısız senaryosu için).
+3. "Ödemeyi Tamamla" → `POST /api/payments/pay`. İstek, sayfa mount olduğunda BİR KEZ
+   üretilmiş bir `Idempotency-Key` header'ı taşır — çift tıklama veya ağ hatası sonrası
+   retry kartı iki kez çekmez.
+4. **Başarısız kartla** (`4000...`) denersen: hata ekranı + sebebe göre Türkçe mesaj +
+   "Tekrar Dene" (bu YENİ bir idempotency anahtarı üretir, aksi halde backend aynı
+   (başarısız) sonucu tekrar döner) + "Siparişi İptal Et" linki.
+5. "Tekrar Dene"ye basıp başarılı kartla (`4242...`) tekrar ödemeyi dene → onay ikonlu
+   başarı ekranı, sipariş numarası, "Siparişlerim" / "Alışverişe Devam Et" linkleri.
+   Otomatik yönlendirme YAPILMAZ, kullanıcı onayı görmeden sayfa değişmez.
+6. Sayfanın altında o siparişe ait TÜM ödeme denemeleri (başarılı + başarısız, tarih/
+   son 4 hane/marka/sonuç/sebep ile) listelenir — az önceki başarısız deneme de burada
+   görünür.
+
+### 7. Satıcı siparişi yönetir — `/seller/orders`
+
+1. `/seller/orders`'a git; sipariş durumu ve kargo durumu filtrelerini kullan (URL'de
+   tutulur).
+2. Her kart: sipariş no (tıklanınca detaya gider), tarih, alıcının SADECE adı (e-postası
+   hiç dönmez), durum rozeti, yalnızca BU SATICIYA AİT satırlar, ve `sellerSubtotal` —
+   `order.totalPrice` DEĞİL, çünkü o tutar siparişteki diğer satıcıların satırlarını da
+   içerir.
+3. Sipariş ödenmiş ve satırlar `PENDING` ise "Kargoya Ver" butonu görünür; backend'in
+   reddedeceği bir durumda (ödeme tamamlanmamışsa) buton hiç gösterilmez. Butona basınca
+   "Bu siparişteki ürünleriniz kargoya verilmiş olarak işaretlenecek" açıklamalı bir onay
+   modalı çıkar.
+4. Onaylayınca `PATCH /api/seller/orders/:id/fulfillment` çağrılır, liste tazelenir; aynı
+   kart artık "Teslim Edildi" butonunu gösterir (satırlar `SHIPPED` olduğu için).
+5. Teslim edildi olarak işaretlendiğinde (`DELIVERED`) artık hiçbir aksiyon butonu kalmaz.
+
 ## Mimari
 
 - **Feature-folder yapısı**: her özellik (`modules/<feature>/`) kendi route, controller,
@@ -852,10 +953,13 @@ frontend/src/
 │   ├── ui/            # theme'e bağlı, sayfadan bağımsız temel bileşenler
 │   │                   # (Button, Input, Select, TextArea, Card, Badge, Spinner,
 │   │                   #  LoadingState, ErrorState, EmptyState, Modal, Pagination)
-│   ├── layout/         # Header, Footer, AppLayout (Header + <Outlet/> + Footer)
-│   └── feedback/        # Toast görsel bileşeni (ToastContext'in render ettiği katman)
+│   ├── layout/         # Header (mobilde hamburger menüye düşer), Footer, AppLayout
+│   ├── orders/          # OrderStatusBadge — hem customer hem seller sipariş ekranlarının
+│   │                     #  paylaştığı durum/rozet eşlemesi
+│   ├── feedback/         # Toast görsel bileşeni (ToastContext'in render ettiği katman)
+│   └── ErrorBoundary.tsx # beklenmeyen render hatalarında "Sayfayı Yenile" ekranı, App.tsx'i sarar
 ├── features/            # sayfa bileşenleri, alt klasör = özellik alanı
-│   ├── auth/, product/, cart/, order/, payment/, seller/, misc/
+│   ├── auth/, catalog/, cart/, orders/, payment/, seller/, misc/
 ├── services/             # API çağrı katmanı — HER dış istek buradan geçer
 │   ├── apiClient.ts       # axios instance, interceptor'lar, apiGet/Post/Patch/Delete
 │   ├── apiError.ts        # ApiError sınıfı
@@ -867,6 +971,7 @@ frontend/src/
 │   ├── useApi.ts          # GET benzeri veri çekme (yarış koşulu + unmount koruması)
 │   ├── useMutation.ts      # POST/PATCH/DELETE benzeri yazma işlemleri
 │   ├── useDebounce.ts      # arama kutusu vb. için değer geciktirme
+│   ├── usePageTitle.ts     # document.title'ı "Sayfa | LocalShop" biçiminde ayarlar
 │   └── useAuth.ts, useCart.ts, useToast.ts  # ilgili context'i okuyan hook'lar
 ├── context/               # React context sağlayıcıları
 │   ├── AuthContext.tsx     # user, auth status, login/register/logout/refreshUser
@@ -957,11 +1062,18 @@ rozetinin kaynağıdır.
 | `/orders/:id`                 | `OrderDetailPage`          | customer                                              |
 | `/payment/:orderId`           | `PaymentPage`               | customer                                              |
 | `/seller`                     | `SellerDashboardPage`      | seller                                                |
-| `/seller/products`            | `SellerProductsPage`       | seller                                                |
+| `/seller/products`            | `SellerProductListPage`    | seller                                                |
 | `/seller/products/new`        | `SellerProductNewPage`     | seller                                                |
 | `/seller/products/:id/edit`   | `SellerProductEditPage`    | seller                                                |
 | `/seller/orders`              | `SellerOrdersPage`         | seller                                                |
+| `/seller/orders/:id`          | `SellerOrderDetailPage`    | seller                                                |
 | `*`                           | `NotFoundPage`             | public                                                |
+
+`/seller/*` route'ları ayrıca `SellerLayout` ile sarılır (Panel/Ürünlerim/Siparişler
+sekmeli navigasyon); `customer`/`seller` sayfalarının tamamı `/products` gibi bir
+sepet/sipariş sayfasına customer olmayan biri erişmeye çalışırsa "403 - Yetkiniz Yok"
+ekranını, seller sayfasına customer erişmeye çalışırsa aynı ekranı gösterir (yukarıdaki
+paragraf).
 
 `customer`/`seller` erişimi `ProtectedRoute allowedRoles={[...]}` ile uygulanır. `status`
 `"loading"` iken (bkz. yukarıdaki Kimlik Doğrulama Akışı) hiçbir yönlendirme yapılmaz, tam
@@ -1050,6 +1162,19 @@ npm run sync-indexes
 ## API Dokümantasyonu
 
 TODO — Faz 11'de doldurulacak
+
+## Ekran Görüntüleri
+
+TODO — demo videosu çekilirken doldurulacak. Aşağıdaki 7 akışın ([Kullanıcı
+Akışları](#kullanıcı-akışları)) her birinden en az bir ekran görüntüsü planlanıyor:
+
+- [ ] Satıcı kaydı (`/register`, seçili "Satıcı" kartı)
+- [ ] Ürün ekleme formu (`/seller/products/new`)
+- [ ] Katalog (`/products`, filtreler açık)
+- [ ] Ürün detayı + sepete ekle (`/products/:id`)
+- [ ] Sepet (`/cart`, sorun uyarısı olan bir satırla)
+- [ ] Ödeme formu ve başarı ekranı (`/payment/:orderId`)
+- [ ] Satıcı sipariş yönetimi (`/seller/orders`, "Kargoya Ver" onay modalı)
 
 ## Demo Video
 
