@@ -11,10 +11,11 @@ import OrderDetailPage from "@/features/orders/OrderDetailPage";
 import OrderListPage from "@/features/orders/OrderListPage";
 import PaymentPage from "@/features/payment/PaymentPage";
 import SellerDashboardPage from "@/features/seller/SellerDashboardPage";
+import SellerLayout from "@/features/seller/SellerLayout";
 import SellerOrdersPage from "@/features/seller/SellerOrdersPage";
 import SellerProductEditPage from "@/features/seller/SellerProductEditPage";
+import SellerProductListPage from "@/features/seller/SellerProductListPage";
 import SellerProductNewPage from "@/features/seller/SellerProductNewPage";
-import SellerProductsPage from "@/features/seller/SellerProductsPage";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { paths } from "@/routes/paths";
 import PublicOnlyRoute from "@/routes/PublicOnlyRoute";
@@ -65,12 +66,12 @@ const router = createBrowserRouter([
       {
         element: (
           <ProtectedRoute allowedRoles={["seller"]}>
-            <Outlet />
+            <SellerLayout />
           </ProtectedRoute>
         ),
         children: [
           { path: relative(paths.SELLER_DASHBOARD), element: <SellerDashboardPage /> },
-          { path: relative(paths.SELLER_PRODUCTS), element: <SellerProductsPage /> },
+          { path: relative(paths.SELLER_PRODUCTS), element: <SellerProductListPage /> },
           { path: relative(paths.SELLER_PRODUCT_NEW), element: <SellerProductNewPage /> },
           { path: relative(paths.SELLER_PRODUCT_EDIT), element: <SellerProductEditPage /> },
           { path: relative(paths.SELLER_ORDERS), element: <SellerOrdersPage /> },
