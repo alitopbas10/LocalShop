@@ -26,10 +26,24 @@ görüntüler → sepete ekler → sipariş oluşturur → FakePay ile öder →
 
 ## Frontend Mimari Kuralları
 - src/ altında: components/ (paylaşılan), features/ (sayfa bazlı), services/ (API katmanı),
-  hooks/, context/, styles/, types/, utils/
+  hooks/, context/, routes/, styles/, types/, utils/
+- styled-components kullanılır
+
+## Frontend Kuralları
 - API çağrıları asla component içinde fetch/axios ile yapılmaz; services/ katmanından geçer
-- styled-components kullanılır, renk/spacing/font değerleri theme üzerinden okunur, hardcode edilmez
-- Her async ekranda loading ve error state'i açıkça yönetilir
+- Backend zarfı ({ success, data, meta }) apiClient interceptor'ında açılır; component'ler
+  zarfı hiç görmez, apiGet/apiPost/apiPatch/apiDelete doğrudan { data, meta } döner
+- Hata mesajları errorMessages.ts'teki ErrorCode → mesaj eşlemesinden gelir; component
+  içinde error.code'a bakıp mesaj kurma YAPILMAZ
+- Renk, boşluk, yazı boyutu theme üzerinden okunur, hardcode edilmez
+- Her async ekranda üç durum açıkça yönetilir: loading, error, empty — sadece "veri geldi"
+  durumunu ele almak yeterli değildir
+- Route yolları paths.ts sabitlerinden okunur, component içine string literal route yazılmaz
+- Korumalı route'larda auth durumu "loading" iken yönlendirme YAPILMAZ — /auth/me cevabı
+  gelmeden "unauthenticated" varsayılırsa, geçerli bir oturumu olan kullanıcı sayfa
+  yenilendiğinde gereksiz yere login'e atılır
+- Yetki yetersizliğinde (rol uygun değil) login'e yönlendirme YAPILMAZ, "yetkiniz yok" (403)
+  ekranı gösterilir — kullanıcı zaten giriş yapmıştır, sorun kimlik doğrulama değil yetkidir
 
 ## Güvenlik Kuralları
 

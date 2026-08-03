@@ -59,12 +59,16 @@ src/
 ├── services/           # API çağrı katmanı (axios)
 ├── hooks/              # paylaşılan custom hook'lar
 ├── context/            # React context sağlayıcıları
+├── routes/             # route tanımları, path sabitleri, auth guard'ları
 ├── styles/             # theme, GlobalStyle, styled-components tip genişletmesi
 ├── types/              # paylaşılan TypeScript tipleri
 ├── utils/              # genel yardımcı fonksiyonlar
 ├── App.tsx
 └── main.tsx
 ```
+
+> Detaylı klasör sorumlulukları, katman diyagramı, kimlik doğrulama akışı ve route tablosu
+> için bkz. [Frontend Mimarisi](#frontend-mimarisi).
 
 ## Gereksinimler
 
@@ -834,6 +838,171 @@ TÜM TESTLER GEÇTİ
 - **E-posta doğrulama ve şifre sıfırlama akışları kapsam dışı.** Kayıt anında
   e-posta sahipliği doğrulanmaz, unutulan şifre için bir akış yoktur; bu MVP'nin
   kapsamı customer/seller temel akışıyla sınırlıdır.
+
+## Frontend Mimarisi
+
+Faz 9 kapsamında kurulan frontend iskeleti: route altyapısı, kimlik doğrulama, tekrar
+kullanılabilir UI bileşenleri, API katmanı ve sepet durumu.
+
+### Klasör Yapısı
+
+```
+frontend/src/
+├── components/
+│   ├── ui/            # theme'e bağlı, sayfadan bağımsız temel bileşenler
+│   │                   # (Button, Input, Select, TextArea, Card, Badge, Spinner,
+│   │                   #  LoadingState, ErrorState, EmptyState, Modal, Pagination)
+│   ├── layout/         # Header, Footer, AppLayout (Header + <Outlet/> + Footer)
+│   └── feedback/        # Toast görsel bileşeni (ToastContext'in render ettiği katman)
+├── features/            # sayfa bileşenleri, alt klasör = özellik alanı
+│   ├── auth/, product/, cart/, order/, payment/, seller/, misc/
+├── services/             # API çağrı katmanı — HER dış istek buradan geçer
+│   ├── apiClient.ts       # axios instance, interceptor'lar, apiGet/Post/Patch/Delete
+│   ├── apiError.ts        # ApiError sınıfı
+│   ├── errorMessages.ts   # ErrorCode → Türkçe mesaj eşlemesi
+│   ├── tokenStorage.ts     # localStorage okuma/yazma (try/catch korumalı)
+│   ├── authService.ts, catalogService.ts, sellerProductService.ts, cartService.ts,
+│   │   orderService.ts, sellerOrderService.ts, paymentService.ts
+├── hooks/                # paylaşılan custom hook'lar
+│   ├── useApi.ts          # GET benzeri veri çekme (yarış koşulu + unmount koruması)
+│   ├── useMutation.ts      # POST/PATCH/DELETE benzeri yazma işlemleri
+│   ├── useDebounce.ts      # arama kutusu vb. için değer geciktirme
+│   └── useAuth.ts, useCart.ts, useToast.ts  # ilgili context'i okuyan hook'lar
+├── context/               # React context sağlayıcıları
+│   ├── AuthContext.tsx     # user, auth status, login/register/logout/refreshUser
+│   ├── CartContext.tsx     # cart, itemCount, sepet mutasyonları
+│   └── ToastContext.tsx    # showToast(message, type)
+├── routes/                # route tanımları ve erişim kontrolü
+│   ├── paths.ts            # tüm route yolları (tek kaynak, string literal dağıtılmaz)
+│   ├── AppRouter.tsx        # createBrowserRouter route ağacı
+│   ├── ProtectedRoute.tsx   # auth + rol kontrolü gereken sayfalar için guard
+│   └── PublicOnlyRoute.tsx  # yalnızca giriş yapmamış kullanıcıya açık sayfalar (login/register)
+├── styles/                # theme.ts, GlobalStyle.ts, styled-components tip genişletmesi
+├── types/                  # api.ts (zarf tipleri), models.ts (backend response tipleri)
+├── utils/                  # cleanParams.ts gibi genel yardımcılar
+├── App.tsx                 # AppRouter'ı render eder
+└── main.tsx                 # provider ağacının kurulduğu kök (bkz. aşağıda)
+```
+
+Her klasörün tek bir sorumluluğu vardır ve bir üsttekinin işini yapmaz: `features/` bileşenleri
+asla doğrudan `axios` çağırmaz (bu `services/`'in işidir), `services/` React'a dair hiçbir şey
+bilmez (state tutmaz, hook değildir), state ve React'a özgü mantık `hooks/` ve `context/`'te
+yaşar. `routes/`, hangi sayfanın hangi yolda ve hangi erişim seviyesinde olduğunu tek bir yerde
+toplar.
+
+### Katman Diyagramı
+
+```mermaid
+flowchart LR
+    Page["Sayfa (features/*)"] --> Hook["Hook (useApi / useMutation / useCart / useAuth)"]
+    Hook --> Service["Service (services/*.ts)"]
+    Service --> ApiClient["apiClient (axios instance + interceptor'lar)"]
+    ApiClient --> Backend["Backend API (/api/...)"]
+    Backend -.->|"{ success, data, meta } veya { success, error }"| ApiClient
+    ApiClient -.->|"{ data, meta } veya ApiError fırlatır"| Service
+    Service -.-> Hook
+    Hook -.->|"data, error, isLoading"| Page
+```
+
+Bir sayfa asla `services/`'i atlayıp doğrudan `apiClient`'ı ya da `axios`'u çağırmaz; bir
+`service` fonksiyonu asla state tutmaz veya bir React hook'u içeriden çağırmaz. Zarf açma
+(`{ success, data }` → `data`) ve hata normalize etme (`AxiosError` → `ApiError`) yalnızca
+`apiClient.ts`'te, tek bir yerde olur — bu sayede `services/` katmanındaki her fonksiyon
+doğrudan tipli veriyle çalışır, zarfın veya axios'un varlığından habersizdir.
+
+### Kimlik Doğrulama Akışı
+
+```mermaid
+flowchart LR
+    A["LoginPage: authService.login(email, password)"] --> B["POST /api/auth/login"]
+    B --> C["Token alınır: tokenStorage.setToken() → localStorage"]
+    C --> D["AuthContext: user + status='authenticated'"]
+    D --> E["apiClient request interceptor: sonraki her istekte<br/>Authorization: Bearer &lt;token&gt;"]
+    E --> F["ProtectedRoute: status kontrolü, sayfa render edilir"]
+```
+
+Sayfa yenilendiğinde (`localStorage`'da token var ama `AuthContext` state'i sıfırdan
+kuruluyor): `AuthContext`, mount olduğunda token varsa `GET /api/auth/me` çağırır; cevap
+gelene kadar `status` `"loading"` kalır (bkz. [Tasarım Kararları](#tasarım-kararları-5) ve
+aşağıdaki [Route Tablosu](#route-tablosu)). `/auth/me` başarısız olursa (token süresi
+dolmuş/geçersiz) token temizlenir ve `status` `"unauthenticated"` olur.
+
+**Otomatik çıkış:** `apiClient` response interceptor'ı bir `401` yakaladığında — ve yalnızca
+o an geçerli bir token varsa VE istek `/auth/login` veya `/auth/register` DEĞİLSE — token
+temizlenir ve `AuthContext`'e bağlanan bir `unauthorizedHandler` çağrılır (`logout()`).
+`apiClient`, döngüsel bağımlılık ve test edilebilirlik açısından `AuthContext`'i doğrudan
+import etmez; bunun yerine `setUnauthorizedHandler` ile dışarıdan bir callback alır.
+
+### Sepet Durumu (CartContext)
+
+`CartContext`, `AuthProvider`'ın İÇİNDE kurulur çünkü sepetin yüklenip yüklenmeyeceği
+doğrudan auth durumuna bağımlıdır: yalnızca `status === "authenticated" && user.role ===
+"customer"` iken `GET /api/cart` çağrılır. Seller veya misafir kullanıcı için bu isteğin
+atlanması bilinçlidir — `/api/cart` `authorize("customer")` ile korunur, aksi halde her
+sayfa geçişinde kaçınılmaz bir `403` üretilirdi. Sepet mutasyonları (`addItem`,
+`updateItem`, `removeItem`, `clearCart`), backend'in döndürdüğü güncel `CartView`'ı doğrudan
+state'e yazar; ayrı bir "tazeleme" isteği gerekmez. `itemCount`, `Header`'daki sepet
+rozetinin kaynağıdır.
+
+### Route Tablosu
+
+| Yol                          | Sayfa                     | Erişim                                              |
+| ----------------------------- | -------------------------- | ---------------------------------------------------- |
+| `/`, `/products`              | `ProductListPage`          | public                                                |
+| `/products/:id`               | `ProductDetailPage`        | public                                                |
+| `/login`                      | `LoginPage`                | public (giriş yapmışsa `/`'e yönlendirilir)           |
+| `/register`                   | `RegisterPage`             | public (giriş yapmışsa `/`'e yönlendirilir)           |
+| `/cart`                       | `CartPage`                 | customer                                              |
+| `/orders`                     | `OrderListPage`            | customer                                              |
+| `/orders/:id`                 | `OrderDetailPage`          | customer                                              |
+| `/payment/:orderId`           | `PaymentPage`               | customer                                              |
+| `/seller`                     | `SellerDashboardPage`      | seller                                                |
+| `/seller/products`            | `SellerProductsPage`       | seller                                                |
+| `/seller/products/new`        | `SellerProductNewPage`     | seller                                                |
+| `/seller/products/:id/edit`   | `SellerProductEditPage`    | seller                                                |
+| `/seller/orders`              | `SellerOrdersPage`         | seller                                                |
+| `*`                           | `NotFoundPage`             | public                                                |
+
+`customer`/`seller` erişimi `ProtectedRoute allowedRoles={[...]}` ile uygulanır. `status`
+`"loading"` iken (bkz. yukarıdaki Kimlik Doğrulama Akışı) hiçbir yönlendirme yapılmaz, tam
+sayfa bir yükleniyor göstergesi render edilir — aksi halde geçerli bir oturumu olan bir
+kullanıcı, sayfa yenilendiğinde `/auth/me` cevabı gelmeden `/login`'e fırlatılırdı. Rolü
+uygun olmayan (ama giriş yapmış) bir kullanıcı `/login`'e DEĞİL, bir "403 - Yetkiniz Yok"
+ekranına yönlendirilir — sorun kimlik doğrulama değil yetkidir, bu iki durum kullanıcıya
+farklı gösterilmelidir.
+
+### Tasarım Kararları
+
+- **Token localStorage'da tutuluyor.** Bilinçli bir MVP kararıdır ve bir güvenlik ödünüdür:
+  `localStorage`'a JavaScript'ten erişilebilir olduğu için, sayfada bir XSS açığı olursa
+  token çalınabilir (`httpOnly` bir cookie'nin aksine). Üretimde bunun yerine `httpOnly` +
+  `Secure` bir cookie ile birlikte bir CSRF token mekanizması tercih edilecektir — bu kombinasyon
+  token'ı JavaScript'in erişim alanından tamamen çıkarır. Bu değişim backend'de oturum
+  modelini de etkileyeceği için MVP kapsamının dışında bırakıldı.
+- **react-query (veya benzeri bir kütüphane) yerine özel bir `useApi` hook'u.** Proje
+  boyunca "istenmeyen paket kurma" ilkesine sadık kalındı; `useApi`/`useMutation` ikilisi
+  bu MVP'nin gerçekten ihtiyaç duyduğu iki şeyi (yarış koşulu koruması, unmount sonrası
+  `setState` koruması) çözecek kadar küçük tutuldu. Buna karşılık bilinçli olarak feragat
+  edilen özellikler: sorgu sonucu cache'leme, arka planda yeniden doğrulama (background
+  revalidation), pencereye odaklanınca otomatik yeniden çekme, istek tekilleştirme (request
+  deduplication). Bu özelliklere ihtiyaç arttıkça (ör. aynı veri birden fazla sayfada
+  tekrar tekrar çekiliyorsa) react-query'ye geçiş değerlendirilebilir; o zamana kadar
+  minimum bağımlılık tercih edildi.
+- **Tipler backend'den otomatik türetilmiyor, elle yazılıyor.** `types/api.ts` ve
+  `types/models.ts`, backend'in `apiResponse.ts`, `errorCodes.ts` ve modül `*.types.ts`
+  dosyaları okunarak elle yazıldı; backend ile frontend arasında bir codegen/şema paylaşım
+  hattı kurulmadı. Bu, backend bir alanı değiştirdiğinde frontend tipinin fark edilmeden
+  eskimesi (uyumsuzluk) riski taşır — bu risk bilinçli olarak kabul edildi. Faz 11'de
+  eklenecek Swagger/OpenAPI çıktısı, ileride bir codegen adımına (ör. `openapi-typescript`)
+  zemin hazırlayacak şekilde tasarlanacaktır; o noktaya kadar tipler elle senkronize
+  tutulmalıdır.
+- **401'de otomatik çıkış, `/auth/login` ve `/auth/register` isteklerini hariç tutar.**
+  Bir login denemesinde `401` almak (yanlış şifre) beklenen ve normal bir sonuçtur; bu
+  durumda kullanıcıyı "oturumu düşürüp" çıkışa zorlamak hem anlamsız hem de kafa
+  karıştırıcıdır (zaten oturum açmamış bir kullanıcı "çıkış" yapamaz). Otomatik çıkış
+  yalnızca ŞU AN geçerli bir token varken bir `401` alındığında anlamlıdır — bu, token'ın
+  süresinin dolduğu veya sunucu tarafında geçersiz kılındığı anlamına gelir ve gerçekten
+  oturumun düşürülmesi gereken tek durumdur.
 
 ## Örnek Veri
 
