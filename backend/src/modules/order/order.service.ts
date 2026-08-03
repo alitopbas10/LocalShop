@@ -383,6 +383,10 @@ export interface SellerOrderView {
   items: SellerOrderItemView[];
   sellerSubtotal: number;
   itemCount: number;
+  // Satıcı arayüzü sellerSubtotal'ın sipariş toplamından neden farklı olduğunu
+  // açıklayabilsin diye eklendi: bu alan diğer satıcıların satırlarını hiç göstermez,
+  // yalnızca "başka satıcı da var mı" bilgisini taşır.
+  hasOtherSellers: boolean;
 }
 
 // Bir satıcı, aynı siparişteki başka bir satıcının hangi üründen kaç adet sattığını
@@ -391,6 +395,9 @@ export interface SellerOrderView {
 // satıcının satırlarını kapsar.
 export function toSellerOrderView(order: SellerOrderSource, sellerId: string): SellerOrderView {
   const ownItems = order.items.filter((item) => item.sellerId.toString() === sellerId);
+  // FİLTRELEMEDEN ÖNCEKİ order.items üzerinden hesaplanır: satıcıya diğer satırların
+  // içeriği (hangi ürün, ne kadar) hiç sızdırılmaz, yalnızca "var mı yok mu" bilgisi.
+  const hasOtherSellers = order.items.some((item) => item.sellerId.toString() !== sellerId);
 
   let subtotalCents = 0;
   let itemCount = 0;
@@ -420,6 +427,7 @@ export function toSellerOrderView(order: SellerOrderSource, sellerId: string): S
     // toplam yalnızca kendi satırlarından hesaplanır.
     sellerSubtotal: subtotalCents / 100,
     itemCount,
+    hasOtherSellers,
   };
 }
 
