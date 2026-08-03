@@ -2,38 +2,16 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import styled from "styled-components";
 
-import { Badge, Card, EmptyState, ErrorState, LoadingState, type BadgeVariant } from "@/components/ui";
+import { Card, EmptyState, ErrorState, LoadingState } from "@/components/ui";
+import { ORDER_STATUS_LABELS, OrderStatusBadge, PAYABLE_ORDER_STATUSES } from "@/components/orders/OrderStatusBadge";
 import CardForm from "@/features/payment/CardForm";
 import PaymentHistory from "@/features/payment/PaymentHistory";
 import { useApi } from "@/hooks/useApi";
 import { useCart } from "@/hooks/useCart";
 import { orderDetail } from "@/routes/paths";
 import * as orderService from "@/services/orderService";
-import type { OrderStatus, PayOrderResult } from "@/types/models";
+import type { PayOrderResult } from "@/types/models";
 import { formatPrice } from "@/utils/format";
-
-// Yalnızca bu iki durumdaki bir sipariş ödemeye açıktır (backend'deki
-// PAYABLE_ORDER_STATUSES ile birebir aynı liste, bkz. payment.service.ts): diğer tüm
-// durumlarda (PAID, CANCELLED, SHIPPED, DELIVERED) form hiç gösterilmez.
-const PAYABLE_ORDER_STATUSES: readonly OrderStatus[] = ["PENDING_PAYMENT", "PAYMENT_FAILED"];
-
-const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: "Ödeme bekleniyor",
-  PAID: "Ödendi",
-  PAYMENT_FAILED: "Ödeme başarısız",
-  SHIPPED: "Kargoya verildi",
-  DELIVERED: "Teslim edildi",
-  CANCELLED: "İptal edildi",
-};
-
-const ORDER_STATUS_BADGE_VARIANT: Record<OrderStatus, BadgeVariant> = {
-  PENDING_PAYMENT: "warning",
-  PAID: "success",
-  PAYMENT_FAILED: "danger",
-  SHIPPED: "info",
-  DELIVERED: "success",
-  CANCELLED: "neutral",
-};
 
 const Title = styled.h1`
   font-size: ${({ theme }) => theme.fontSizes.xl};
@@ -138,7 +116,7 @@ export default function PaymentPage() {
       <Card padding="lg">
         <SummaryHeader>
           <OrderNumber>Sipariş No: {order.orderNumber}</OrderNumber>
-          <Badge variant={ORDER_STATUS_BADGE_VARIANT[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
+          <OrderStatusBadge status={order.status} />
         </SummaryHeader>
 
         <ItemList>
