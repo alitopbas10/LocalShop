@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { openApiDocument } from "@/docs/openapi";
 
-const OUTPUT_PATH = join(__dirname, "../../docs/openapi.json");
+const OUTPUT_PATH = join(__dirname, "../../../docs/openapi.json");
 
 mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
 writeFileSync(OUTPUT_PATH, `${JSON.stringify(openApiDocument, null, 2)}\n`, "utf-8");
