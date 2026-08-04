@@ -19,7 +19,10 @@ export const globalRateLimit = rateLimit({
     env.NODE_ENV === "test" ||
     // Sağlık kontrolü izleme sistemleri tarafından sık çağrılır, onları
     // engellemek izlemeyi kör eder.
-    (req.method === "GET" && req.path === "/health"),
+    (req.method === "GET" && req.path === "/health") ||
+    // Dokümantasyonda gezinirken limite takılmanın bir anlamı yok; Swagger UI
+    // tek sayfa yüklemesinde bile /api/docs.json'a birden fazla istek atabilir.
+    (req.method === "GET" && req.path.startsWith("/api/docs")),
   handler: (_req, res) => {
     const body: ApiFailure = {
       success: false,

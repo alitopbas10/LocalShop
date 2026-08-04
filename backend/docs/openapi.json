@@ -1,0 +1,5159 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "LocalShop API",
+    "version": "1.0.0",
+    "description": "LocalShop, yerel üreticilerin ürünlerini doğrudan müşterilere sattığı marketplace MVP'sinin REST API'si. Tüm başarılı response'lar `{ success: true, data, meta? }`, tüm hata response'ları `{ success: false, error: { message, code, details? } }` zarfıyla döner.",
+    "contact": {
+      "name": "LocalShop",
+      "email": "support@localshop.dev"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Bu dokümantasyon sayfasıyla aynı origin (Try it out için önerilir)"
+    },
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development (mutlak URL — harici araçlar için)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Kayıt, giriş ve mevcut kullanıcı"
+    },
+    {
+      "name": "Catalog",
+      "description": "Herkese açık ürün kataloğu (authenticate gerektirmez)"
+    },
+    {
+      "name": "Seller Products",
+      "description": "Satıcının kendi ürün yönetimi"
+    },
+    {
+      "name": "Cart",
+      "description": "Müşteri sepeti (yalnızca customer rolü)"
+    },
+    {
+      "name": "Orders",
+      "description": "Müşteri sipariş akışı (yalnızca customer rolü)"
+    },
+    {
+      "name": "Seller Orders",
+      "description": "Satıcıya gelen siparişler ve kargo yönetimi (yalnızca seller rolü)"
+    },
+    {
+      "name": "Payments",
+      "description": "FakePay ile ödeme (yalnızca customer rolü)"
+    },
+    {
+      "name": "System",
+      "description": "Sağlık kontrolü"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "RegisterInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128,
+            "pattern": "^(?=.*[A-Za-z])(?=.*\\d).+$"
+          },
+          "role": {
+            "default": "customer",
+            "type": "string",
+            "enum": [
+              "customer",
+              "seller"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password"
+        ]
+      },
+      "LoginInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "CreateProductInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000
+          },
+          "price": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000
+          },
+          "stock": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "price",
+          "stock",
+          "category"
+        ]
+      },
+      "UpdateProductInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000
+          },
+          "price": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000
+          },
+          "stock": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "AddItemInput": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$"
+          },
+          "quantity": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      },
+      "UpdateItemInput": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 99
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "PayCardInput": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$"
+          },
+          "cardNumber": {
+            "type": "string"
+          },
+          "cardHolder": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "expiry": {
+            "type": "string",
+            "pattern": "^(0[1-9]|1[0-2])\\/\\d{2}$"
+          },
+          "cvv": {
+            "type": "string",
+            "pattern": "^\\d{3,4}$"
+          }
+        },
+        "required": [
+          "orderId",
+          "cardNumber",
+          "cardHolder",
+          "expiry",
+          "cvv"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateFulfillmentInput": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "SHIPPED",
+              "DELIVERED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CreateOrderInput": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "PaginationQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "number",
+            "minimum": 1
+          },
+          "limit": {
+            "default": 20,
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "number",
+            "minimum": 1
+          },
+          "limit": {
+            "default": 20,
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "search": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "minPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "newest",
+              "priceAsc",
+              "priceDesc",
+              "relevance"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SellerProductQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "number",
+            "minimum": 1
+          },
+          "limit": {
+            "default": 20,
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "isActive": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
+          },
+          "sort": {
+            "default": "newest",
+            "type": "string",
+            "enum": [
+              "newest",
+              "oldest",
+              "priceAsc",
+              "priceDesc"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerOrderQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "number",
+            "minimum": 1
+          },
+          "limit": {
+            "default": 20,
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAID",
+              "PAYMENT_FAILED",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          },
+          "sort": {
+            "default": "newest",
+            "type": "string",
+            "enum": [
+              "newest",
+              "oldest"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SellerOrderQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "number",
+            "minimum": 1
+          },
+          "limit": {
+            "default": 20,
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAID",
+              "PAYMENT_FAILED",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          },
+          "fulfillmentStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          },
+          "sort": {
+            "default": "newest",
+            "type": "string",
+            "enum": [
+              "newest",
+              "oldest"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "VALIDATION_ERROR",
+          "UNAUTHORIZED",
+          "INVALID_CREDENTIALS",
+          "TOKEN_EXPIRED",
+          "TOKEN_INVALID",
+          "FORBIDDEN",
+          "NOT_FOUND",
+          "DUPLICATE_RESOURCE",
+          "INSUFFICIENT_STOCK",
+          "INVALID_STATE_TRANSITION",
+          "RATE_LIMIT_EXCEEDED",
+          "PAYLOAD_TOO_LARGE",
+          "INTERNAL_ERROR"
+        ],
+        "description": "Makine tarafından okunabilir hata kodu; mesaj metni kullanıcıya gösterilir, dallanma bu koda göre yapılır."
+      },
+      "ApiFailure": {
+        "type": "object",
+        "required": [
+          "success",
+          "error"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "error": {
+            "type": "object",
+            "required": [
+              "message",
+              "code"
+            ],
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "code": {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              "details": {
+                "description": "Hata koduna özgü ek bilgi (ör. alan bazlı doğrulama hataları)."
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "stack": {
+                "type": "string",
+                "description": "Yalnızca development ortamında ve 5xx hatalarında bulunur."
+              }
+            }
+          }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "HealthStatus": {
+        "type": "object",
+        "required": [
+          "status",
+          "uptime",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "uptime": {
+            "type": "number",
+            "description": "Process çalışma süresi (saniye)."
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "_id",
+          "name",
+          "email",
+          "role",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "seller"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AuthResult": {
+        "type": "object",
+        "required": [
+          "user",
+          "token"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "token": {
+            "type": "string",
+            "description": "JWT access token; Authorization: Bearer <token> ile gönderilir."
+          }
+        }
+      },
+      "SellerRef": {
+        "type": "object",
+        "required": [
+          "_id",
+          "name"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "CatalogListItem": {
+        "type": "object",
+        "required": [
+          "_id",
+          "name",
+          "price",
+          "stock",
+          "category",
+          "inStock",
+          "seller",
+          "createdAt"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "stock": {
+            "type": "integer"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "inStock": {
+            "type": "boolean"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/SellerRef"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CatalogDetail": {
+        "type": "object",
+        "required": [
+          "_id",
+          "name",
+          "description",
+          "price",
+          "stock",
+          "category",
+          "inStock",
+          "seller",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "stock": {
+            "type": "integer"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "inStock": {
+            "type": "boolean"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/SellerRef"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CategoryCount": {
+        "type": "object",
+        "required": [
+          "value",
+          "count"
+        ],
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "required": [
+          "_id",
+          "name",
+          "description",
+          "price",
+          "stock",
+          "category",
+          "sellerId",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "stock": {
+            "type": "integer"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "sellerId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CartLineProduct": {
+        "type": "object",
+        "required": [
+          "_id",
+          "name",
+          "price",
+          "category",
+          "stock"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "food",
+              "beverage",
+              "handcraft",
+              "textile",
+              "cosmetics",
+              "home",
+              "other"
+            ]
+          },
+          "stock": {
+            "type": "integer"
+          }
+        }
+      },
+      "CartIssue": {
+        "type": "object",
+        "required": [
+          "productId",
+          "productName",
+          "issue",
+          "requested",
+          "available"
+        ],
+        "properties": {
+          "productId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_UNAVAILABLE",
+              "INSUFFICIENT_STOCK"
+            ]
+          },
+          "requested": {
+            "type": "integer"
+          },
+          "available": {
+            "type": "integer"
+          }
+        }
+      },
+      "CartLineItem": {
+        "type": "object",
+        "required": [
+          "productId",
+          "quantity",
+          "product",
+          "unitPrice",
+          "lineTotal",
+          "available",
+          "issue",
+          "availableStock"
+        ],
+        "properties": {
+          "productId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "product": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CartLineProduct"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "lineTotal": {
+            "type": "number"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "issue": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PRODUCT_UNAVAILABLE",
+                  "INSUFFICIENT_STOCK"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "availableStock": {
+            "type": "integer"
+          }
+        }
+      },
+      "CartView": {
+        "type": "object",
+        "required": [
+          "items",
+          "itemCount",
+          "distinctItemCount",
+          "subtotal",
+          "hasIssues",
+          "issues"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartLineItem"
+            }
+          },
+          "itemCount": {
+            "type": "integer",
+            "description": "Sepetteki toplam adet (satır sayısı değil)."
+          },
+          "distinctItemCount": {
+            "type": "integer"
+          },
+          "subtotal": {
+            "type": "number",
+            "description": "Yalnızca uygun (available: true) satırların toplamı."
+          },
+          "hasIssues": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartIssue"
+            }
+          }
+        }
+      },
+      "OrderItemView": {
+        "type": "object",
+        "required": [
+          "productId",
+          "sellerId",
+          "name",
+          "price",
+          "quantity",
+          "lineTotal",
+          "fulfillmentStatus"
+        ],
+        "properties": {
+          "productId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "sellerId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "type": "string",
+            "description": "Sipariş anındaki ürün adı (snapshot)."
+          },
+          "price": {
+            "type": "number",
+            "description": "Sipariş anındaki birim fiyat (snapshot)."
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "lineTotal": {
+            "type": "number"
+          },
+          "fulfillmentStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "required": [
+          "_id",
+          "orderNumber",
+          "userId",
+          "items",
+          "totalPrice",
+          "status",
+          "sellerIds",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemView"
+            }
+          },
+          "totalPrice": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAID",
+              "PAYMENT_FAILED",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          },
+          "sellerIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "665f1a2b3c4d5e6f70819293"
+            }
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancelledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BuyerRef": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SellerOrderItemView": {
+        "type": "object",
+        "required": [
+          "productId",
+          "name",
+          "price",
+          "quantity",
+          "lineTotal",
+          "fulfillmentStatus"
+        ],
+        "properties": {
+          "productId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "lineTotal": {
+            "type": "number"
+          },
+          "fulfillmentStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          }
+        }
+      },
+      "SellerOrder": {
+        "type": "object",
+        "required": [
+          "_id",
+          "orderNumber",
+          "status",
+          "createdAt",
+          "buyer",
+          "items",
+          "sellerSubtotal",
+          "itemCount",
+          "hasOtherSellers"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAID",
+              "PAYMENT_FAILED",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "buyer": {
+            "$ref": "#/components/schemas/BuyerRef"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SellerOrderItemView"
+            }
+          },
+          "sellerSubtotal": {
+            "type": "number",
+            "description": "order.totalPrice DEĞİL: yalnızca bu satıcının kendi satırlarının toplamı."
+          },
+          "itemCount": {
+            "type": "integer"
+          },
+          "hasOtherSellers": {
+            "type": "boolean",
+            "description": "Siparişte başka satıcıların da satırı var mı (içerikleri sızdırılmaz)."
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "required": [
+          "_id",
+          "orderId",
+          "userId",
+          "amount",
+          "status",
+          "cardLast4",
+          "cardBrand",
+          "transactionId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "orderId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "userId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "example": "665f1a2b3c4d5e6f70819293"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ]
+          },
+          "cardLast4": {
+            "type": "string",
+            "pattern": "^\\d{4}$"
+          },
+          "cardBrand": {
+            "type": "string",
+            "example": "VISA"
+          },
+          "failureReason": {
+            "type": "string",
+            "enum": [
+              "CARD_DECLINED",
+              "INVALID_CARD_NUMBER",
+              "CARD_EXPIRED",
+              "INSUFFICIENT_FUNDS",
+              "PROCESSING_ERROR"
+            ]
+          },
+          "transactionId": {
+            "type": "string",
+            "example": "FP-1a2b3c4d5e6f"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PayOrderResult": {
+        "type": "object",
+        "required": [
+          "payment",
+          "order"
+        ],
+        "properties": {
+          "payment": {
+            "$ref": "#/components/schemas/Payment"
+          },
+          "order": {
+            "type": "object",
+            "required": [
+              "_id",
+              "orderNumber",
+              "status",
+              "totalPrice"
+            ],
+            "properties": {
+              "_id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "example": "665f1a2b3c4d5e6f70819293"
+              },
+              "orderNumber": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PENDING_PAYMENT",
+                  "PAID",
+                  "PAYMENT_FAILED",
+                  "SHIPPED",
+                  "DELIVERED",
+                  "CANCELLED"
+                ]
+              },
+              "totalPrice": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Sağlık kontrolü",
+        "description": "Rate limit ve authentication dışında tutulur; izleme sistemleri tarafından sık çağrılır.",
+        "responses": {
+          "200": {
+            "description": "Servis ayakta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/HealthStatus"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "status": "ok",
+                    "uptime": 12345.67,
+                    "timestamp": "2026-02-04T11:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Kayıt ol",
+        "description": "customer veya seller rolüyle yeni bir hesap oluşturur ve bir access token döner.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterInput"
+              },
+              "example": {
+                "name": "Ayşe Yılmaz",
+                "email": "ayse.yilmaz@example.com",
+                "password": "Uretici2026",
+                "role": "seller"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hesap oluşturuldu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthResult"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "user": {
+                      "_id": "665f1a2b3c4d5e6f70819202",
+                      "name": "Mehmet Demir",
+                      "email": "seller1@localshop.dev",
+                      "role": "seller",
+                      "createdAt": "2026-01-10T09:00:00.000Z",
+                      "updatedAt": "2026-01-10T09:00:00.000Z"
+                    },
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVmMWEyYjNjNGQ1ZTZmNzA4MTkyMDEiLCJyb2xlIjoiY3VzdG9tZXIiLCJpYXQiOjE3NjgwMDAwMDAsImV4cCI6MTc2ODA4NjQwMH0.9x0z1y2w3v4u5t6s7r8q9p0o1n2m3l4k5j6i7h8g9f0e1d2c"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "E-posta zaten kayıtlı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "email is already in use",
+                    "code": "DUPLICATE_RESOURCE"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "password",
+                        "message": "Password must contain at least one letter and one number"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Too many attempts, please try again later",
+                    "code": "RATE_LIMIT_EXCEEDED"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Giriş yap",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginInput"
+              },
+              "examples": {
+                "customer": {
+                  "summary": "Müşteri girişi",
+                  "value": {
+                    "email": "customer1@localshop.dev",
+                    "password": "Test1234"
+                  }
+                },
+                "seller": {
+                  "summary": "Satıcı girişi",
+                  "value": {
+                    "email": "seller1@localshop.dev",
+                    "password": "Test1234"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Giriş başarılı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthResult"
+                    }
+                  }
+                },
+                "examples": {
+                  "customer": {
+                    "summary": "Müşteri girişi",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "user": {
+                          "_id": "665f1a2b3c4d5e6f70819201",
+                          "name": "Ayşe Yılmaz",
+                          "email": "customer1@localshop.dev",
+                          "role": "customer",
+                          "createdAt": "2026-01-15T10:30:00.000Z",
+                          "updatedAt": "2026-01-15T10:30:00.000Z"
+                        },
+                        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVmMWEyYjNjNGQ1ZTZmNzA4MTkyMDEiLCJyb2xlIjoiY3VzdG9tZXIiLCJpYXQiOjE3NjgwMDAwMDAsImV4cCI6MTc2ODA4NjQwMH0.9x0z1y2w3v4u5t6s7r8q9p0o1n2m3l4k5j6i7h8g9f0e1d2c"
+                      }
+                    }
+                  },
+                  "seller": {
+                    "summary": "Satıcı girişi",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "user": {
+                          "_id": "665f1a2b3c4d5e6f70819202",
+                          "name": "Mehmet Demir",
+                          "email": "seller1@localshop.dev",
+                          "role": "seller",
+                          "createdAt": "2026-01-10T09:00:00.000Z",
+                          "updatedAt": "2026-01-10T09:00:00.000Z"
+                        },
+                        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVmMWEyYjNjNGQ1ZTZmNzA4MTkyMDEiLCJyb2xlIjoiY3VzdG9tZXIiLCJpYXQiOjE3NjgwMDAwMDAsImV4cCI6MTc2ODA4NjQwMH0.9x0z1y2w3v4u5t6s7r8q9p0o1n2m3l4k5j6i7h8g9f0e1d2c"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kimlik bilgileri hatalı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Invalid email or password",
+                    "code": "INVALID_CREDENTIALS"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "email",
+                        "message": "Invalid email address"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Too many attempts, please try again later",
+                    "code": "RATE_LIMIT_EXCEEDED"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Giriş yapmış kullanıcıyı getir",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Güncel kullanıcı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "665f1a2b3c4d5e6f70819201",
+                    "name": "Ayşe Yılmaz",
+                    "email": "customer1@localshop.dev",
+                    "role": "customer",
+                    "createdAt": "2026-01-15T10:30:00.000Z",
+                    "updatedAt": "2026-01-15T10:30:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/categories": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Kategori listesini ürün sayılarıyla getir",
+        "description": "Ürünü olmayan kategoriler de count:0 ile listede yer alır.",
+        "responses": {
+          "200": {
+            "description": "Kategori sayıları",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CategoryCount"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "value": "food",
+                      "count": 18
+                    },
+                    {
+                      "value": "beverage",
+                      "count": 6
+                    },
+                    {
+                      "value": "handcraft",
+                      "count": 11
+                    },
+                    {
+                      "value": "textile",
+                      "count": 4
+                    },
+                    {
+                      "value": "cosmetics",
+                      "count": 3
+                    },
+                    {
+                      "value": "home",
+                      "count": 7
+                    },
+                    {
+                      "value": "other",
+                      "count": 2
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Herkese açık ürün kataloğunu listele",
+        "description": "Yalnızca isActive: true olan ürünler döner.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "type": "number",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "food",
+                "beverage",
+                "handcraft",
+                "textile",
+                "cosmetics",
+                "home",
+                "other"
+              ],
+              "example": "food"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100,
+              "example": "bal"
+            }
+          },
+          {
+            "name": "minPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "example": 100
+            }
+          },
+          {
+            "name": "maxPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "example": 1000
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "priceAsc",
+                "priceDesc",
+                "relevance"
+              ],
+              "example": "priceAsc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ürün listesi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CatalogListItem"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "_id": "507f1f77bcf86cd799439011",
+                      "name": "Kestane Balı",
+                      "price": 450.5,
+                      "stock": 25,
+                      "category": "food",
+                      "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                      "inStock": true,
+                      "seller": {
+                        "_id": "665f1a2b3c4d5e6f70819202",
+                        "name": "Mehmet Demir"
+                      },
+                      "createdAt": "2026-01-20T08:00:00.000Z"
+                    }
+                  ],
+                  "meta": {
+                    "total": 24,
+                    "page": 1,
+                    "limit": 20,
+                    "totalPages": 2
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "query",
+                        "field": "maxPrice",
+                        "message": "minPrice cannot be greater than maxPrice"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Ürün detayını getir",
+        "description": "Pasif (isActive: false) bir ürün için de 404 döner.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Ürün id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "507f1f77bcf86cd799439011"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ürün detayı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CatalogDetail"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "507f1f77bcf86cd799439011",
+                    "name": "Kestane Balı",
+                    "price": 450.5,
+                    "stock": 25,
+                    "category": "food",
+                    "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                    "inStock": true,
+                    "seller": {
+                      "_id": "665f1a2b3c4d5e6f70819202",
+                      "name": "Mehmet Demir"
+                    },
+                    "createdAt": "2026-01-20T08:00:00.000Z",
+                    "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                    "updatedAt": "2026-01-20T08:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Product not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "params",
+                        "field": "id",
+                        "message": "Invalid id format"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/seller/products": {
+      "post": {
+        "tags": [
+          "Seller Products"
+        ],
+        "summary": "Yeni ürün oluştur",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductInput"
+              },
+              "example": {
+                "name": "Kestane Balı",
+                "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                "price": 450.5,
+                "stock": 25,
+                "category": "food"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ürün oluşturuldu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "507f1f77bcf86cd799439011",
+                    "name": "Kestane Balı",
+                    "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                    "price": 450.5,
+                    "stock": 25,
+                    "category": "food",
+                    "sellerId": "665f1a2b3c4d5e6f70819202",
+                    "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                    "isActive": true,
+                    "createdAt": "2026-01-20T08:00:00.000Z",
+                    "updatedAt": "2026-01-20T08:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "price",
+                        "message": "Too small: expected number to be >0"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Seller Products"
+        ],
+        "summary": "Kendi ürünlerini listele",
+        "description": "isActive filtresi verilmezse pasif ürünler de (satıcının arşivi) dahil edilir.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "type": "number",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "food",
+                "beverage",
+                "handcraft",
+                "textile",
+                "cosmetics",
+                "home",
+                "other"
+              ],
+              "example": "food"
+            }
+          },
+          {
+            "name": "isActive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "example": "true"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest",
+                "priceAsc",
+                "priceDesc"
+              ],
+              "example": "newest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Satıcının ürünleri",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Product"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "_id": "507f1f77bcf86cd799439011",
+                      "name": "Kestane Balı",
+                      "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                      "price": 450.5,
+                      "stock": 25,
+                      "category": "food",
+                      "sellerId": "665f1a2b3c4d5e6f70819202",
+                      "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                      "isActive": true,
+                      "createdAt": "2026-01-20T08:00:00.000Z",
+                      "updatedAt": "2026-01-20T08:00:00.000Z"
+                    }
+                  ],
+                  "meta": {
+                    "total": 6,
+                    "page": 1,
+                    "limit": 20,
+                    "totalPages": 1
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/seller/products/{id}": {
+      "get": {
+        "tags": [
+          "Seller Products"
+        ],
+        "summary": "Kendi ürününü id ile getir",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Ürün id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "507f1f77bcf86cd799439011"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ürün",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "507f1f77bcf86cd799439011",
+                    "name": "Kestane Balı",
+                    "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                    "price": 450.5,
+                    "stock": 25,
+                    "category": "food",
+                    "sellerId": "665f1a2b3c4d5e6f70819202",
+                    "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                    "isActive": true,
+                    "createdAt": "2026-01-20T08:00:00.000Z",
+                    "updatedAt": "2026-01-20T08:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to access this product",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Product not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Seller Products"
+        ],
+        "summary": "Ürünü güncelle",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Ürün id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "507f1f77bcf86cd799439011"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductInput"
+              },
+              "example": {
+                "stock": 35
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Güncellenmiş ürün",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "507f1f77bcf86cd799439011",
+                    "name": "Kestane Balı",
+                    "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                    "price": 450.5,
+                    "stock": 35,
+                    "category": "food",
+                    "sellerId": "665f1a2b3c4d5e6f70819202",
+                    "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                    "isActive": true,
+                    "createdAt": "2026-01-20T08:00:00.000Z",
+                    "updatedAt": "2026-02-01T09:15:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to access this product",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Product not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "root",
+                        "message": "At least one field must be provided"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Seller Products"
+        ],
+        "summary": "Ürünü pasifleştir (soft delete)",
+        "description": "Ürün fiziksel olarak silinmez; isActive: false yapılır, katalogdan gizlenir.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Ürün id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "507f1f77bcf86cd799439011"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pasifleştirilmiş ürün",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "507f1f77bcf86cd799439011",
+                    "name": "Kestane Balı",
+                    "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                    "price": 450.5,
+                    "stock": 25,
+                    "category": "food",
+                    "sellerId": "665f1a2b3c4d5e6f70819202",
+                    "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                    "isActive": false,
+                    "createdAt": "2026-01-20T08:00:00.000Z",
+                    "updatedAt": "2026-01-20T08:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to access this product",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Product not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ürün zaten pasif",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Product is already inactive",
+                    "code": "DUPLICATE_RESOURCE"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/seller/products/{id}/activate": {
+      "patch": {
+        "tags": [
+          "Seller Products"
+        ],
+        "summary": "Pasif ürünü yeniden aktive et",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Ürün id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "507f1f77bcf86cd799439011"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aktive edilmiş ürün",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "507f1f77bcf86cd799439011",
+                    "name": "Kestane Balı",
+                    "description": "Marmaris yöresinden doğal kestane balı, 850g cam kavanoz",
+                    "price": 450.5,
+                    "stock": 25,
+                    "category": "food",
+                    "sellerId": "665f1a2b3c4d5e6f70819202",
+                    "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                    "isActive": true,
+                    "createdAt": "2026-01-20T08:00:00.000Z",
+                    "updatedAt": "2026-01-20T08:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to access this product",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Product not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cart": {
+      "get": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Sepeti getir",
+        "description": "Sepet yoksa boş bir sepet oluşturulup döner. Fiyatlar her okumada üründen canlı çekilir.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sepet görünümü",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CartView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "quantity": 2,
+                        "product": {
+                          "_id": "507f1f77bcf86cd799439011",
+                          "name": "Kestane Balı",
+                          "price": 450.5,
+                          "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                          "category": "food",
+                          "stock": 25
+                        },
+                        "unitPrice": 450.5,
+                        "lineTotal": 901,
+                        "available": true,
+                        "issue": null,
+                        "availableStock": 25
+                      }
+                    ],
+                    "itemCount": 2,
+                    "distinctItemCount": 1,
+                    "subtotal": 901,
+                    "hasIssues": false,
+                    "issues": []
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Sepeti tamamen boşalt",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Boşaltılmış sepet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CartView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "items": [],
+                    "itemCount": 0,
+                    "distinctItemCount": 0,
+                    "subtotal": 0,
+                    "hasIssues": false,
+                    "issues": []
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cart/items": {
+      "post": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Sepete ürün ekle",
+        "description": "Ürün zaten sepette varsa adet ÜZERİNE EKLENİR, üzerine yazılmaz.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddItemInput"
+              },
+              "example": {
+                "productId": "507f1f77bcf86cd799439011",
+                "quantity": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Güncellenmiş sepet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CartView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "quantity": 2,
+                        "product": {
+                          "_id": "507f1f77bcf86cd799439011",
+                          "name": "Kestane Balı",
+                          "price": 450.5,
+                          "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                          "category": "food",
+                          "stock": 25
+                        },
+                        "unitPrice": 450.5,
+                        "lineTotal": 901,
+                        "available": true,
+                        "issue": null,
+                        "availableStock": 25
+                      }
+                    ],
+                    "itemCount": 2,
+                    "distinctItemCount": 1,
+                    "subtotal": 901,
+                    "hasIssues": false,
+                    "issues": []
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requested quantity exceeds available stock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Insufficient stock",
+                    "code": "INSUFFICIENT_STOCK",
+                    "details": {
+                      "requested": 5,
+                      "available": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Product not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "productId",
+                        "message": "Invalid id format"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cart/items/{productId}": {
+      "patch": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Sepetteki ürün adedini güncelle",
+        "description": "quantity: 0 gönderilirse ürün sepetten kaldırılır (adet MUTLAK olarak atanır, artırılmaz).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "Ürün id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "507f1f77bcf86cd799439011"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemInput"
+              },
+              "example": {
+                "quantity": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Güncellenmiş sepet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CartView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "quantity": 3,
+                        "product": {
+                          "_id": "507f1f77bcf86cd799439011",
+                          "name": "Kestane Balı",
+                          "price": 450.5,
+                          "imageUrl": "https://images.localshop.dev/products/kestane-bali.jpg",
+                          "category": "food",
+                          "stock": 25
+                        },
+                        "unitPrice": 450.5,
+                        "lineTotal": 1351.5,
+                        "available": true,
+                        "issue": null,
+                        "availableStock": 25
+                      }
+                    ],
+                    "itemCount": 3,
+                    "distinctItemCount": 1,
+                    "subtotal": 1351.5,
+                    "hasIssues": false,
+                    "issues": []
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requested quantity exceeds available stock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Insufficient stock",
+                    "code": "INSUFFICIENT_STOCK",
+                    "details": {
+                      "requested": 5,
+                      "available": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cart item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Cart item not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "quantity",
+                        "message": "Too big: expected number to be <=99"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "Sepetten ürün çıkar",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "Ürün id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "507f1f77bcf86cd799439011"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Güncellenmiş sepet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CartView"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "items": [],
+                    "itemCount": 0,
+                    "distinctItemCount": 0,
+                    "subtotal": 0,
+                    "hasIssues": false,
+                    "issues": []
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cart item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Cart item not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Sepetten sipariş oluştur",
+        "description": "Sipariş içeriği istemciden alınmaz, sunucudaki sepetten okunur; body boş olmalıdır. Stok düşümü, sipariş oluşturma ve sepet temizleme tek transaction içindedir.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderInput"
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Oluşturulan sipariş",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Order"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "665f1a2b3c4d5e6f70819401",
+                    "orderNumber": "LS-20260204-0007",
+                    "userId": "665f1a2b3c4d5e6f70819201",
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "sellerId": "665f1a2b3c4d5e6f70819202",
+                        "name": "Kestane Balı",
+                        "price": 450.5,
+                        "quantity": 2,
+                        "lineTotal": 901,
+                        "fulfillmentStatus": "PENDING"
+                      }
+                    ],
+                    "totalPrice": 901,
+                    "status": "PENDING_PAYMENT",
+                    "sellerIds": [
+                      "665f1a2b3c4d5e6f70819202"
+                    ],
+                    "createdAt": "2026-02-04T11:00:00.000Z",
+                    "updatedAt": "2026-02-04T11:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Sepet boş",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Cart is empty",
+                    "code": "VALIDATION_ERROR"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Sepetteki bir veya daha fazla ürün artık istenen adette mevcut değil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "One or more items are no longer available in the requested quantity",
+                    "code": "INSUFFICIENT_STOCK",
+                    "details": {
+                      "productId": "507f1f77bcf86cd799439011",
+                      "requestedQuantity": 3
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Kendi siparişlerini listele",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "type": "number",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING_PAYMENT",
+                "PAID",
+                "PAYMENT_FAILED",
+                "SHIPPED",
+                "DELIVERED",
+                "CANCELLED"
+              ],
+              "example": "PAID"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest"
+              ],
+              "example": "newest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sipariş listesi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Order"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "_id": "665f1a2b3c4d5e6f70819401",
+                      "orderNumber": "LS-20260204-0007",
+                      "userId": "665f1a2b3c4d5e6f70819201",
+                      "items": [
+                        {
+                          "productId": "507f1f77bcf86cd799439011",
+                          "sellerId": "665f1a2b3c4d5e6f70819202",
+                          "name": "Kestane Balı",
+                          "price": 450.5,
+                          "quantity": 2,
+                          "lineTotal": 901,
+                          "fulfillmentStatus": "PENDING"
+                        }
+                      ],
+                      "totalPrice": 901,
+                      "status": "PENDING_PAYMENT",
+                      "sellerIds": [
+                        "665f1a2b3c4d5e6f70819202"
+                      ],
+                      "createdAt": "2026-02-04T11:00:00.000Z",
+                      "updatedAt": "2026-02-04T11:00:00.000Z"
+                    }
+                  ],
+                  "meta": {
+                    "total": 5,
+                    "page": 1,
+                    "limit": 20,
+                    "totalPages": 1
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Kendi siparişini id ile getir",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sipariş id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "665f1a2b3c4d5e6f70819401"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sipariş",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Order"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "665f1a2b3c4d5e6f70819401",
+                    "orderNumber": "LS-20260204-0007",
+                    "userId": "665f1a2b3c4d5e6f70819201",
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "sellerId": "665f1a2b3c4d5e6f70819202",
+                        "name": "Kestane Balı",
+                        "price": 450.5,
+                        "quantity": 2,
+                        "lineTotal": 901,
+                        "fulfillmentStatus": "PENDING"
+                      }
+                    ],
+                    "totalPrice": 901,
+                    "status": "PENDING_PAYMENT",
+                    "sellerIds": [
+                      "665f1a2b3c4d5e6f70819202"
+                    ],
+                    "createdAt": "2026-02-04T11:00:00.000Z",
+                    "updatedAt": "2026-02-04T11:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to access this order",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Siparişi iptal et",
+        "description": "Yalnızca PENDING_PAYMENT veya PAYMENT_FAILED durumundaki siparişler iptal edilebilir; rezerve stok geri verilir.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sipariş id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "665f1a2b3c4d5e6f70819401"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "İptal edilmiş sipariş",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Order"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "665f1a2b3c4d5e6f70819401",
+                    "orderNumber": "LS-20260204-0007",
+                    "userId": "665f1a2b3c4d5e6f70819201",
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "sellerId": "665f1a2b3c4d5e6f70819202",
+                        "name": "Kestane Balı",
+                        "price": 450.5,
+                        "quantity": 2,
+                        "lineTotal": 901,
+                        "fulfillmentStatus": "CANCELLED"
+                      }
+                    ],
+                    "totalPrice": 901,
+                    "status": "CANCELLED",
+                    "sellerIds": [
+                      "665f1a2b3c4d5e6f70819202"
+                    ],
+                    "createdAt": "2026-02-04T11:00:00.000Z",
+                    "updatedAt": "2026-02-04T11:10:00.000Z",
+                    "cancelledAt": "2026-02-04T11:10:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to access this order",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Sipariş bu durumdan iptal edilemez",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order cannot be cancelled from status SHIPPED",
+                    "code": "INVALID_STATE_TRANSITION"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/seller/orders": {
+      "get": {
+        "tags": [
+          "Seller Orders"
+        ],
+        "summary": "Satıcıya gelen siparişleri listele",
+        "description": "Her siparişte yalnızca bu satıcıya ait satırlar (items) ve sellerSubtotal döner; diğer satıcıların satırları filtrelenir.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "type": "number",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING_PAYMENT",
+                "PAID",
+                "PAYMENT_FAILED",
+                "SHIPPED",
+                "DELIVERED",
+                "CANCELLED"
+              ],
+              "example": "PAID"
+            }
+          },
+          {
+            "name": "fulfillmentStatus",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "SHIPPED",
+                "DELIVERED",
+                "CANCELLED"
+              ],
+              "example": "PENDING"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest"
+              ],
+              "example": "newest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Satıcı sipariş listesi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SellerOrder"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "_id": "665f1a2b3c4d5e6f70819401",
+                      "orderNumber": "LS-20260204-0007",
+                      "status": "PAID",
+                      "createdAt": "2026-02-04T11:00:00.000Z",
+                      "buyer": {
+                        "name": "Ayşe Yılmaz"
+                      },
+                      "items": [
+                        {
+                          "productId": "507f1f77bcf86cd799439011",
+                          "name": "Kestane Balı",
+                          "price": 450.5,
+                          "quantity": 2,
+                          "lineTotal": 901,
+                          "fulfillmentStatus": "PENDING"
+                        }
+                      ],
+                      "sellerSubtotal": 901,
+                      "itemCount": 2,
+                      "hasOtherSellers": false
+                    }
+                  ],
+                  "meta": {
+                    "total": 3,
+                    "page": 1,
+                    "limit": 20,
+                    "totalPages": 1
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/seller/orders/{id}": {
+      "get": {
+        "tags": [
+          "Seller Orders"
+        ],
+        "summary": "Satıcıya gelen siparişi id ile getir",
+        "description": "Bu satıcının hiç satırı olmadığı bir sipariş için 403 yerine 404 döner (varlığını sızdırmamak için).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sipariş id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "665f1a2b3c4d5e6f70819401"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Satıcı sipariş görünümü",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SellerOrder"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "665f1a2b3c4d5e6f70819401",
+                    "orderNumber": "LS-20260204-0007",
+                    "status": "PAID",
+                    "createdAt": "2026-02-04T11:00:00.000Z",
+                    "buyer": {
+                      "name": "Ayşe Yılmaz"
+                    },
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "name": "Kestane Balı",
+                        "price": 450.5,
+                        "quantity": 2,
+                        "lineTotal": 901,
+                        "fulfillmentStatus": "PENDING"
+                      }
+                    ],
+                    "sellerSubtotal": 901,
+                    "itemCount": 2,
+                    "hasOtherSellers": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/seller/orders/{id}/fulfillment": {
+      "patch": {
+        "tags": [
+          "Seller Orders"
+        ],
+        "summary": "Kargo durumunu güncelle",
+        "description": "Satıcı yalnızca SHIPPED veya DELIVERED durumuna geçirebilir; ödemesi tamamlanmamış siparişlerde reddedilir.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sipariş id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "665f1a2b3c4d5e6f70819401"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFulfillmentInput"
+              },
+              "example": {
+                "status": "SHIPPED"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Güncellenmiş satıcı sipariş görünümü",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SellerOrder"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "_id": "665f1a2b3c4d5e6f70819401",
+                    "orderNumber": "LS-20260204-0007",
+                    "status": "PAID",
+                    "createdAt": "2026-02-04T11:00:00.000Z",
+                    "buyer": {
+                      "name": "Ayşe Yılmaz"
+                    },
+                    "items": [
+                      {
+                        "productId": "507f1f77bcf86cd799439011",
+                        "name": "Kestane Balı",
+                        "price": 450.5,
+                        "quantity": 2,
+                        "lineTotal": 901,
+                        "fulfillmentStatus": "SHIPPED"
+                      }
+                    ],
+                    "sellerSubtotal": 901,
+                    "itemCount": 2,
+                    "hasOtherSellers": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to perform this action",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Kargo durumu bu durumdan güncellenemez",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Fulfillment status cannot be updated while payment is not completed (order status: PENDING_PAYMENT)",
+                    "code": "INVALID_STATE_TRANSITION"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "status",
+                        "message": "Invalid option: expected one of \"SHIPPED\"|\"DELIVERED\""
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/pay": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Sipariş için ödeme yap",
+        "description": "Tutar siparişten (order.totalPrice) okunur, istemciden alınmaz. Idempotency-Key header'ı ile tekrar denemede aynı sonuç döner, kart iki kez çekilmez. Kart bilgileri hiçbir yere yazılmaz. FakePay simülasyonunda yalnızca 4242424242424242 başarılı olur; 4000000000000000 CARD_DECLINED ile başarısız olur.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Ödeme sayfası mount başına bir kez üretir; aynı anahtarla tekrar denemede yeni bir tahsilat başlatılmaz, önceki sonuç döner.",
+            "schema": {
+              "type": "string",
+              "example": "8f14e45f-ceea-4d5e-9f0a-1b2c3d4e5f60"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayCardInput"
+              },
+              "examples": {
+                "success": {
+                  "summary": "Başarılı ödeme",
+                  "value": {
+                    "orderId": "665f1a2b3c4d5e6f70819401",
+                    "cardNumber": "4242424242424242",
+                    "cardHolder": "ALI TOPBAS",
+                    "expiry": "12/30",
+                    "cvv": "123"
+                  }
+                },
+                "declined": {
+                  "summary": "Başarısız ödeme",
+                  "value": {
+                    "orderId": "665f1a2b3c4d5e6f70819401",
+                    "cardNumber": "4000000000000000",
+                    "cardHolder": "ALI TOPBAS",
+                    "expiry": "12/30",
+                    "cvv": "123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ödeme sonucu (başarılı veya başarısız denemeyi de içerir)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PayOrderResult"
+                    }
+                  }
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Başarılı ödeme",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "payment": {
+                          "_id": "665f1a2b3c4d5e6f70819501",
+                          "orderId": "665f1a2b3c4d5e6f70819401",
+                          "userId": "665f1a2b3c4d5e6f70819201",
+                          "amount": 901,
+                          "status": "SUCCEEDED",
+                          "cardLast4": "4242",
+                          "cardBrand": "VISA",
+                          "transactionId": "FP-1a2b3c4d5e6f",
+                          "createdAt": "2026-02-04T11:05:00.000Z",
+                          "updatedAt": "2026-02-04T11:05:00.000Z"
+                        },
+                        "order": {
+                          "_id": "665f1a2b3c4d5e6f70819401",
+                          "orderNumber": "LS-20260204-0007",
+                          "status": "PAID",
+                          "totalPrice": 901
+                        }
+                      }
+                    }
+                  },
+                  "declined": {
+                    "summary": "Başarısız ödeme",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "payment": {
+                          "_id": "665f1a2b3c4d5e6f70819502",
+                          "orderId": "665f1a2b3c4d5e6f70819401",
+                          "userId": "665f1a2b3c4d5e6f70819201",
+                          "amount": 901,
+                          "status": "FAILED",
+                          "cardLast4": "0000",
+                          "cardBrand": "VISA",
+                          "failureReason": "CARD_DECLINED",
+                          "transactionId": "FP-7g8h9i0j1k2l",
+                          "createdAt": "2026-02-04T11:03:00.000Z",
+                          "updatedAt": "2026-02-04T11:03:00.000Z"
+                        },
+                        "order": {
+                          "_id": "665f1a2b3c4d5e6f70819401",
+                          "orderNumber": "LS-20260204-0007",
+                          "status": "PAYMENT_FAILED",
+                          "totalPrice": 901
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to pay for this order",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Sipariş zaten ödenmiş",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order has already been paid",
+                    "code": "INVALID_STATE_TRANSITION"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body/query/params did not pass Zod validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Request validation failed",
+                    "code": "VALIDATION_ERROR",
+                    "details": [
+                      {
+                        "source": "body",
+                        "field": "cardNumber",
+                        "message": "Card number must be 13-19 digits"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Too many payment attempts, please try again later",
+                    "code": "RATE_LIMIT_EXCEEDED"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/order/{orderId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Bir siparişin tüm ödeme denemelerini listele",
+        "description": "Başarılı ve başarısız tüm denemeler en yeniden en eskiye döner.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "description": "Sipariş id'si",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "example": "665f1a2b3c4d5e6f70819401"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ödeme denemeleri",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Payment"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "_id": "665f1a2b3c4d5e6f70819501",
+                      "orderId": "665f1a2b3c4d5e6f70819401",
+                      "userId": "665f1a2b3c4d5e6f70819201",
+                      "amount": 901,
+                      "status": "SUCCEEDED",
+                      "cardLast4": "4242",
+                      "cardBrand": "VISA",
+                      "transactionId": "FP-1a2b3c4d5e6f",
+                      "createdAt": "2026-02-04T11:05:00.000Z",
+                      "updatedAt": "2026-02-04T11:05:00.000Z"
+                    },
+                    {
+                      "_id": "665f1a2b3c4d5e6f70819502",
+                      "orderId": "665f1a2b3c4d5e6f70819401",
+                      "userId": "665f1a2b3c4d5e6f70819201",
+                      "amount": 901,
+                      "status": "FAILED",
+                      "cardLast4": "0000",
+                      "cardBrand": "VISA",
+                      "failureReason": "CARD_DECLINED",
+                      "transactionId": "FP-7g8h9i0j1k2l",
+                      "createdAt": "2026-02-04T11:03:00.000Z",
+                      "updatedAt": "2026-02-04T11:03:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Authentication required",
+                    "code": "UNAUTHORIZED"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not authorized for this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "You do not have permission to access this order",
+                    "code": "FORBIDDEN"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFailure"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "message": "Order not found",
+                    "code": "NOT_FOUND"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

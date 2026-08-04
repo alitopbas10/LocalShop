@@ -5,6 +5,7 @@ import morgan from "morgan";
 
 import { env, isDev } from "@/config/env";
 import { corsOptions, helmetOptions } from "@/config/security";
+import { docsRoutes } from "@/docs/swagger";
 import {
   errorHandler,
   globalRateLimit,
@@ -89,6 +90,10 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/seller/orders", sellerOrderRoutes);
 
 app.use("/api/payments", paymentRoutes);
+
+// /api/docs ve /api/docs.json: globalRateLimit'in skip listesinde ayrıca muaf tutulur
+// (bkz. middlewares/globalRateLimit.ts) — dokümantasyon gezinirken limite takılmak anlamsız.
+app.use("/api", docsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
