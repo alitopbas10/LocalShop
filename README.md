@@ -1161,7 +1161,75 @@ npm run sync-indexes
 
 ## API Dokümantasyonu
 
-TODO — Faz 11'de doldurulacak
+API sözleşmesi iki eşdeğer biçimde sunulur; değerlendiren kişi ikisinden istediğini kullanabilir.
+
+### Swagger UI (interaktif)
+
+Backend çalışırken tarayıcıdan:
+
+```
+http://localhost:5000/api/docs
+```
+
+- Doküman, backend'in kendi Zod şemalarından programatik olarak üretilir (`backend/src/docs/openapi.ts`) —
+  elle yazılmadığı için bir şema değiştiğinde bayatlamaz.
+- Sağ üstteki **Authorize** ile bir `POST /api/auth/login` yanıtından aldığınız token'ı (yalnızca token'ın
+  kendisi, `Bearer` öneki olmadan) girin; sayfa yenilendiğinde token korunur (`persistAuthorization`).
+- **"Try it out"** ile doğrudan tarayıcıdan gerçek istek atabilirsiniz. Bu arayüz yalnızca
+  `NODE_ENV !== "production"` iken (veya `ENABLE_API_DOCS=true` ile açıkça) mount edilir ve rate
+  limit'ten muaftır; kendine özel, gevşetilmiş bir CSP politikası taşır — API endpoint'lerinin
+  taşıdığı sıkı politika bundan etkilenmez.
+- Ham OpenAPI 3.1 dokümanı ayrıca `http://localhost:5000/api/docs.json`'dan JSON olarak servis edilir.
+
+### OpenAPI JSON (statik)
+
+Sunucuyu ayağa kaldırmadan sözleşmeyi okumak için repoya commit'lenmiş dosya:
+
+```
+docs/openapi.json
+```
+
+Bu dosya, `backend` içinde `npm run docs:export` ile yeniden üretilir — bir Zod şeması değiştiğinde
+bu komut tekrar çalıştırılmalıdır.
+
+### Postman Koleksiyonu
+
+Uçtan uca akışı gösteren, otomatik token/id zincirlemeli bir koleksiyon:
+
+- `docs/LocalShop.postman_collection.json` — 9 klasör (`00 - System` → `08 - Security Tests`), 51 istek
+- `docs/LocalShop.postman_environment.json` — `base_url`, seed hesap bilgileri, boş token değişkenleri
+  (script'ler dolduracak)
+
+**Kurulum:**
+
+1. Postman'de **Import** → her iki dosyayı da seçin.
+2. Sağ üstteki environment açılır listesinden **LocalShop - Local**'i AKTİF environment olarak seçin.
+3. Backend'in çalıştığından (`cd backend && npm run dev`) ve seed verisinin yüklü olduğundan
+   (`cd backend && npm run seed`) emin olun.
+4. Klasörleri **00'dan 08'e sırayla** çalıştırın. `01 - Auth` klasöründeki "Giriş Yap" istekleri,
+   aldıkları token'ı otomatik olarak `customer_token` / `seller_token` / `seller2_token` environment
+   değişkenlerine yazar; sonraki tüm istekler `Authorization: Bearer {{customer_token}}` gibi bu
+   değişkenleri okur — hiçbir token'ı elle kopyalamanız gerekmez. Aynı şekilde `product_id`,
+   `order_id` gibi id'ler de ilgili oluşturma isteğinin yanıtından otomatik zincirlenir.
+
+**Tüm koleksiyonu tek seferde çalıştırma (Collection Runner):**
+
+Koleksiyon adının üzerine gelip **▶ Run** ile Collection Runner'ı açın, klasör sırasını (00→08)
+koruyarak **Run LocalShop API**'ye basın; Postman 51 isteğin tamamını sırayla çalıştırıp sonunda
+kaç test geçti/kaldı özetini gösterir. Aynı işlem komut satırından Newman ile de yapılabilir:
+
+```bash
+npx newman run docs/LocalShop.postman_collection.json -e docs/LocalShop.postman_environment.json
+```
+
+Koleksiyon bu şekilde uçtan uca doğrulanmıştır: 51 istek / 173 assertion, hepsi PASS.
+
+> **Not — rate limit:** `01 - Auth` ve `08 - Security Tests` klasörlerindeki `/api/auth/*` istekleri
+> `authRateLimit`'e tabidir (varsayılan 15 dakikada 10 istek). Koleksiyonu çok kısa aralıklarla art
+> arda birkaç kez çalıştırırsanız bu istekler `429` dönebilir — bu bir koleksiyon hatası değil, doğru
+> çalışan bir güvenlik önleminin kanıtıdır (bkz. yukarıdaki [Güvenlik Testleri](#güvenlik-testleri)
+> bölümündeki aynı not). Pencere sıfırlanana kadar (~15dk) beklemek veya sunucuyu yeniden başlatmak
+> (bellek içi sayaç sıfırlanır) yeterlidir.
 
 ## Ekran Görüntüleri
 

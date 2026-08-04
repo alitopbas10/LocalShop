@@ -1,0 +1,2468 @@
+{
+  "info": {
+    "_postman_id": "5176db26-8207-4750-a82f-5964afa15e91",
+    "name": "LocalShop API",
+    "description": "LocalShop marketplace MVP'sinin uçtan uca API koleksiyonu. Klasörler, case study akışını (00→08) sırayla takip eder ve BİRBİRİNE BAĞIMLIDIR — Collection Runner ile sırayla (00'dan 08'e) çalıştırılmalıdır.\n\n**Kurulum:**\n1. Backend'in ayakta olduğundan emin olun (`cd backend && npm run dev`).\n2. Veritabanının seed'lendiğinden emin olun (`cd backend && npm run seed`) — 01-Auth'taki \"Giriş Yap\" istekleri seed hesaplarını (`seller1@localshop.dev`, `seller2@localshop.dev`, `customer1@localshop.dev`) kullanır.\n3. `LocalShop.postman_environment.json` dosyasını içe aktarıp sağ üstten AKTİF environment olarak seçin.\n4. Koleksiyonu klasör sırasına göre (00 → 08) çalıştırın; token'lar ve zincirleme id'ler (`product_id`, `order_id` vb.) test script'leri tarafından otomatik olarak environment değişkenlerine yazılır — hiçbir değeri elle kopyalamanız gerekmez.\n\n**Tek istek yerine tüm akışı görmek isterseniz:** sağ üstten koleksiyona tıklayıp \"Run\" (Collection Runner) ile tüm koleksiyonu tek seferde, sırayla çalıştırabilirsiniz; sonunda kaç test geçti/kaldı özeti gösterilir.\n\n**Tekrar çalıştırma ve rate limit:** Register istekleri `{{$timestamp}}` ile her seferinde benzersiz e-posta kullanır, geri kalan akış seed hesaplarına dayandığı için genel olarak tekrar tekrar çalıştırılabilir. Ancak 01-Auth ve 08-Security Tests klasörlerindeki `/api/auth/*` istekleri `authRateLimit`'e tabidir (varsayılan 15 dakikada 10 istek) — koleksiyonu çok kısa aralıklarla art arda birkaç kez çalıştırırsanız bu istekler `429` dönebilir; pencere sıfırlanana kadar (~15dk) beklemek veya sunucuyu yeniden başlatmak (bellek içi sayaç sıfırlanır) yeterlidir. Bu bir koleksiyon hatası değil, doğru çalışan bir güvenlik önleminin kanıtıdır (bkz. backend README \"Güvenlik Testleri\" bölümündeki aynı not, `npm run audit:security` için de geçerlidir).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - System",
+      "description": "Sunucunun ayakta olup olmadığını doğrulayan sağlık kontrolü. Kimlik doğrulama gerektirmez, rate limit dışındadır.",
+      "item": [
+        {
+          "name": "Sağlık Kontrolü",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "**Ne yapar:** Sunucunun ayakta olduğunu ve uptime bilgisini döner.\n\n**Gerekli rol:** Yok (herkese açık).\n\n**Dikkat:** Bu istek diğer tüm klasörlerden önce çalıştırılıp sunucunun gerçekten ayakta olduğu doğrulanmalıdır."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"data.status === 'ok'\", () => pm.expect(pm.response.json().data.status).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Auth",
+      "description": "Kayıt, giriş ve mevcut kullanıcı bilgisi. **Otomatik token yönetimi burada gerçekleşir**: aşağıdaki 3 \"Giriş Yap\" isteği, başarılı yanıttaki token'ı sırasıyla customer_token / seller_token / seller2_token environment değişkenlerine yazar. Geri kalan tüm klasörler bu değişkenleri okur — token'ı elle kopyalamanıza gerek yoktur. Kayıt istekleri seed hesaplarından bağımsız, her çalıştırmada benzersiz ({{$timestamp}}) e-postalarla YENİ hesap açar; bu yüzden koleksiyon tekrar tekrar (Postman Runner ile) çalıştırılabilir.",
+      "item": [
+        {
+          "name": "Kayıt Ol (Müşteri)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "**Ne yapar:** `role: \"customer\"` ile yeni bir hesap açar, backend bir JWT access token döner.\n\n**Gerekli rol:** Yok (herkese açık), `authRateLimit` uygulanır (15 dakikada 10 istek).\n\n**Dikkat:** E-posta `{{$timestamp}}` ile benzersizleştirilir ki koleksiyon tekrar çalıştırıldığında `409 email is already in use` alınmasın. Bu istek asıl `customer_token`'ı YAZMAZ — o token, aşağıdaki \"Giriş Yap (Müşteri)\" isteğinden, kararlı seed hesabıyla gelir; böylece koleksiyon her zaman aynı (seed'lenmiş) müşteri kimliğiyle ilerler.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yeni Müşteri\",\n  \"email\": \"yeni.musteri.{{$timestamp}}@example.com\",\n  \"password\": \"Musteri1234\",\n  \"role\": \"customer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"password alanı response'ta yok\", () => pm.expect(json.data.user).to.not.have.property(\"password\"));",
+                  "pm.test(\"token döndü\", () => pm.expect(json.data.token).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"role === customer\", () => pm.expect(json.data.user.role).to.eql(\"customer\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kayıt Ol (Satıcı)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "**Ne yapar:** `role: \"seller\"` ile yeni bir hesap açar (case study akışının ilk adımı: \"seller kayıt olur\").\n\n**Gerekli rol:** Yok (herkese açık), `authRateLimit` uygulanır.\n\n**Dikkat:** Bu istek de asıl `seller_token`'ı YAZMAZ (bkz. üstteki not) — sadece endpoint'in kendisini doğrular. Aşağıdaki \"Giriş Yap (Satıcı)\" isteği asıl akışta kullanılacak token'ı üretir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yeni Satıcı\",\n  \"email\": \"yeni.satici.{{$timestamp}}@example.com\",\n  \"password\": \"Satici1234\",\n  \"role\": \"seller\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"password alanı response'ta yok\", () => pm.expect(json.data.user).to.not.have.property(\"password\"));",
+                  "pm.test(\"token döndü\", () => pm.expect(json.data.token).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"role === seller\", () => pm.expect(json.data.user.role).to.eql(\"seller\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Giriş Yap (Müşteri)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**Ne yapar:** Seed müşteri hesabıyla (`customer1@localshop.dev`) giriş yapar.\n\n**Gerekli rol:** Yok (herkese açık).\n\n**Dikkat — OTOMATİK TOKEN YÖNETİMİ:** Test script'i, başarılı yanıttaki token'ı `customer_token` environment değişkenine yazar (`customer_id`'yi de ayrıca kaydeder). 04-Cart, 05-Orders ve 06-Payments klasörlerindeki tüm istekler `Authorization: Bearer {{customer_token}}` ile bu değişkeni okur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customer_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"password alanı response'ta yok\", () => pm.expect(json.data.user).to.not.have.property(\"password\"));",
+                  "pm.environment.set(\"customer_token\", json.data.token);",
+                  "pm.environment.set(\"customer_id\", json.data.user._id);",
+                  "pm.test(\"customer_token environment'a yazıldı\", () => pm.expect(pm.environment.get(\"customer_token\")).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Giriş Yap (Satıcı)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**Ne yapar:** Seed satıcı hesabıyla (`seller1@localshop.dev`) giriş yapar.\n\n**Gerekli rol:** Yok (herkese açık).\n\n**Dikkat — OTOMATİK TOKEN YÖNETİMİ:** Token `seller_token` environment değişkenine yazılır. 03-Seller Products ve 07-Seller Orders klasörleri bu değişkeni okur.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{seller_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"password alanı response'ta yok\", () => pm.expect(json.data.user).to.not.have.property(\"password\"));",
+                  "pm.environment.set(\"seller_token\", json.data.token);",
+                  "pm.environment.set(\"seller_id\", json.data.user._id);",
+                  "pm.test(\"seller_token environment'a yazıldı\", () => pm.expect(pm.environment.get(\"seller_token\")).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Giriş Yap (Satıcı 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**Ne yapar:** İKİNCİ bir seed satıcı hesabıyla (`seller2@localshop.dev`) giriş yapar.\n\n**Gerekli rol:** Yok (herkese açık).\n\n**Dikkat:** Bu kimlik yalnızca 08-Security Tests klasöründeki IDOR (sahiplik ihlali) testinde kullanılır — Seller 2'nin, Seller 1'e ait bir ürünü güncellemeye çalışıp 403 alması beklenir. Token `seller2_token`'a yazılır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{seller2_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set(\"seller2_token\", json.data.token);",
+                  "pm.environment.set(\"seller2_id\", json.data.user._id);",
+                  "pm.test(\"seller2_token environment'a yazıldı\", () => pm.expect(pm.environment.get(\"seller2_token\")).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mevcut Kullanıcıyı Getir (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**Ne yapar:** Bearer token'a karşılık gelen kullanıcının güncel bilgisini döner (token'daki role'e değil, DB'ye bakılır).\n\n**Gerekli rol:** Herhangi bir giriş yapmış kullanıcı (`authenticate`).\n\n**Dikkat:** Response'ta `password` alanı KESİNLİKLE bulunmamalıdır — User modelindeki `select: false` ve `toJSON` transform'unun çalıştığının kanıtı."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"email === customer_email\", () => pm.expect(json.data.email).to.eql(pm.environment.get(\"customer_email\")));",
+                  "pm.test(\"password alanı response'ta yok\", () => pm.expect(json.data).to.not.have.property(\"password\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Catalog",
+      "description": "Herkese açık ürün kataloğu — kimlik doğrulama gerektirmez, yalnızca `isActive: true` ürünler döner. Bu klasördeki istekler seed verisi (`npm run seed`) üzerinde çalışır; `catalog_product_id` değişkenini kendi içinde zincirler (listeden ilk stoklu ürünü alıp detayında kullanır).",
+      "item": [
+        {
+          "name": "Ürünleri Listele",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?page=1&limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** Aktif ürünleri sayfalanmış şekilde listeler.\n\n**Gerekli rol:** Yok (herkese açık).\n\n**Dikkat:** Yanıttaki `meta` alanı sayfalama bilgisini (`total`, `page`, `limit`, `totalPages`) taşır; listeden stokta olan ilk ürünün id'si `catalog_product_id` değişkenine kaydedilir (bu klasördeki \"Ürün Detayını Getir\" isteği bunu kullanır)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"data bir dizi\", () => pm.expect(json.data).to.be.an(\"array\"));",
+                  "pm.test(\"meta.total sayfalama alanları var\", () => { pm.expect(json.meta).to.have.property(\"total\"); pm.expect(json.meta).to.have.property(\"totalPages\"); });",
+                  "pm.test(\"satıcı e-postası response'ta yok\", () => { json.data.forEach((p) => pm.expect(p.seller).to.not.have.property(\"email\")); });",
+                  "const inStockItem = json.data.find((p) => p.inStock);",
+                  "if (inStockItem) { pm.environment.set(\"catalog_product_id\", inStockItem._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ürün Ara (search)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?search=kayısı",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "kayısı"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** MongoDB text index üzerinden Türkçe gövdelemeyle arama yapar (seed verisindeki \"Kuru Kayısı\" ürününü bulmalı).\n\n**Gerekli rol:** Yok (herkese açık).\n\n**Dikkat:** `sort` verilmediği için sonuçlar otomatik olarak `relevance` (alaka puanı) ile sıralanır."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kategoriye Göre Filtrele",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?category=food",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "food"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** Yalnızca `food` kategorisindeki aktif ürünleri döner.\n\n**Gerekli rol:** Yok (herkese açık)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data;",
+                  "pm.test(\"tüm sonuçlar food kategorisinde\", () => { items.forEach((p) => pm.expect(p.category).to.eql(\"food\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fiyat Aralığına Göre Filtrele",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?minPrice=50&maxPrice=200",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "minPrice",
+                  "value": "50"
+                },
+                {
+                  "key": "maxPrice",
+                  "value": "200"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** Fiyatı 50-200 TL arasında olan aktif ürünleri döner.\n\n**Gerekli rol:** Yok (herkese açık)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data;",
+                  "pm.test(\"tüm sonuçlar fiyat aralığında\", () => { items.forEach((p) => { pm.expect(p.price).to.be.at.least(50); pm.expect(p.price).to.be.at.most(200); }); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ürün Detayını Getir",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products/{{catalog_product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{catalog_product_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Tek bir ürünün tam detayını (açıklama dahil) getirir.\n\n**Gerekli rol:** Yok (herkese açık).\n\n**Dikkat:** `{{catalog_product_id}}`, üstteki \"Ürünleri Listele\" isteğinden zincirlenir — bu istek tek başına (klasörün geri kalanı çalışmadan) tetiklenirse `catalog_product_id` boş olabilir."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"_id === catalog_product_id\", () => pm.expect(json.data._id).to.eql(pm.environment.get(\"catalog_product_id\")));",
+                  "pm.test(\"satıcı e-postası response'ta yok\", () => pm.expect(json.data.seller).to.not.have.property(\"email\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kategori Sayılarını Getir",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "categories"
+              ]
+            },
+            "description": "**Ne yapar:** Her kategorideki aktif ürün sayısını döner (ürünü olmayan kategoriler de `count: 0` ile listelenir).\n\n**Gerekli rol:** Yok (herkese açık)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const categories = pm.response.json().data;",
+                  "pm.test(\"7 kategori döndü\", () => pm.expect(categories.length).to.eql(7));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Seller Products",
+      "description": "Satıcının kendi ürün yönetimi (`authenticate` + `authorize(\"seller\")`). Bu klasörde oluşturulan ürün (`product_id`), koleksiyonun geri kalanında (Cart, Orders, Payments, Seller Orders) kullanılan ANA üründür — klasör sonunda ürün tekrar aktive edilip stoklu bırakılır ki checkout akışı kesintisiz devam edebilsin.",
+      "item": [
+        {
+          "name": "Ürün Oluştur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products"
+              ]
+            },
+            "description": "**Ne yapar:** Giriş yapan satıcı adına yeni bir ürün oluşturur.\n\n**Gerekli rol:** `seller`.\n\n**Dikkat:** `sellerId` request body'sinden ASLA okunmaz, `req.user.id`'den atanır — body'de böyle bir alan yoktur. Oluşan ürünün id'si `product_id`, fiyatı `product_price` olarak kaydedilir; bu ikisi koleksiyonun geri kalanında (Cart → Orders snapshot doğrulaması dahil) kullanılır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kestane Balı\",\n  \"description\": \"Marmaris yöresinden doğal kestane balı, 850g cam kavanoz\",\n  \"price\": 450.5,\n  \"stock\": 25,\n  \"category\": \"food\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"sellerId === seller_id\", () => pm.expect(json.data.sellerId).to.eql(pm.environment.get(\"seller_id\")));",
+                  "pm.test(\"isActive true olarak başlar\", () => pm.expect(json.data.isActive).to.eql(true));",
+                  "pm.environment.set(\"product_id\", json.data._id);",
+                  "pm.environment.set(\"product_price\", json.data.price);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kendi Ürünlerimi Listele",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products?page=1&limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** Giriş yapan satıcının TÜM ürünlerini listeler (isActive filtresi verilmezse pasif ürünler de dahil).\n\n**Gerekli rol:** `seller`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data;",
+                  "pm.test(\"yeni oluşturulan ürün listede\", () => pm.expect(items.some((p) => p._id === pm.environment.get(\"product_id\"))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ürün Detayını Getir (Kendi)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Sahibi olunan bir ürünün detayını getirir.\n\n**Gerekli rol:** `seller` + sahiplik."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"_id === product_id\", () => pm.expect(pm.response.json().data._id).to.eql(pm.environment.get(\"product_id\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ürünü Güncelle",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Ürünü kısmi olarak günceller — yalnızca gönderilen alanlar değişir (`stock`), diğerleri (`name`, `price` vb.) olduğu gibi kalır.\n\n**Gerekli rol:** `seller` + sahiplik.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stock\": 35\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"stock === 35\", () => pm.expect(pm.response.json().data.stock).to.eql(35));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ürünü Pasifleştir",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Soft delete — ürün fiziksel olarak SİLİNMEZ, yalnızca `isActive: false` yapılır ve katalogdan gizlenir.\n\n**Gerekli rol:** `seller` + sahiplik.\n\n**Dikkat:** Aşağıdaki \"Ürünü Tekrar Aktive Et\" isteği bunu geri alır — aksi halde bu ürün sepete eklenemez (pasif ürün için 404 döner) ve koleksiyonun geri kalanı kırılır."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"isActive === false\", () => pm.expect(pm.response.json().data.isActive).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ürünü Tekrar Aktive Et",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products/{{product_id}}/activate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products",
+                "{{product_id}}",
+                "activate"
+              ]
+            },
+            "description": "**Ne yapar:** Pasifleştirilmiş ürünü tekrar `isActive: true` yapar, katalogda yeniden görünür olur.\n\n**Gerekli rol:** `seller` + sahiplik.\n\n**Dikkat:** Bu adım, koleksiyonun geri kalanının (Cart, Orders) bu ürünü kullanabilmesi için ZORUNLUDUR."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"isActive === true\", () => pm.expect(pm.response.json().data.isActive).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Cart",
+      "description": "Müşteri sepeti (`authenticate` + `authorize(\"customer\")`). Sepet, klasör sonunda `product_id` ürününü (03'te oluşturulan) içerecek şekilde bırakılır ki 05-Orders'taki sipariş oluşturma isteği çalışabilsin.",
+      "item": [
+        {
+          "name": "Sepeti Getir",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "**Ne yapar:** Giriş yapan müşterinin sepetini, güncel ürün bilgisiyle zenginleştirilmiş halde getirir (sepet henüz yoksa boş bir sepet oluşturulup döner).\n\n**Gerekli rol:** `customer`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"items bir dizi\", () => pm.expect(pm.response.json().data.items).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sepete Ürün Ekle (Ana Ürün)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "**Ne yapar:** 03'te oluşturulan ürünü 2 adet sepete ekler; ürün zaten sepetteyse adet ÜZERİNE EKLENİR.\n\n**Gerekli rol:** `customer`.\n\n**Dikkat:** Eklenen satırın `unitPrice`'ı `cart_item_unit_price` değişkenine kaydedilir — 05-Orders'taki \"sipariş satırı price snapshot'tır\" testi bu değerle karşılaştırır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "const line = json.data.items.find((i) => i.productId === pm.environment.get(\"product_id\"));",
+                  "pm.test(\"ürün sepette\", () => pm.expect(line).to.not.be.undefined);",
+                  "pm.test(\"issue null (uygun satır)\", () => pm.expect(line.issue).to.eql(null));",
+                  "if (line) { pm.environment.set(\"cart_item_unit_price\", line.unitPrice); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sepete İkinci Bir Ürün Ekle (Geçici)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "**Ne yapar:** Katalogdan (02) zincirlenen ayrı bir ürünü sepete ekler — yalnızca aşağıdaki \"Sepetten Ürün Çıkar\" isteğini anlamlı kılmak için geçici olarak eklenir.\n\n**Gerekli rol:** `customer`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{catalog_product_id}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sepetteki Adedi Güncelle",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items",
+                "{{product_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Ana ürünün adedini MUTLAK olarak 3'e ayarlar (üzerine eklemez, doğrudan atar).\n\n**Gerekli rol:** `customer` + sahiplik (kendi sepeti).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "const line = json.data.items.find((i) => i.productId === pm.environment.get(\"product_id\"));",
+                  "pm.test(\"quantity === 3\", () => pm.expect(line.quantity).to.eql(3));",
+                  "if (line) { pm.environment.set(\"cart_item_unit_price\", line.unitPrice); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sepetten Ürün Çıkar",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items/{{catalog_product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items",
+                "{{catalog_product_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Geçici olarak eklenen ikinci ürünü sepetten çıkarır; ana ürün (`product_id`) sepette kalır.\n\n**Gerekli rol:** `customer` + sahiplik."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "pm.test(\"çıkarılan ürün artık sepette değil\", () => pm.expect(items.some((i) => i.productId === pm.environment.get(\"catalog_product_id\"))).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sepeti Boşalt",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "**Ne yapar:** Sepeti tamamen boşaltır.\n\n**Gerekli rol:** `customer`.\n\n**Dikkat:** Bu istek sepeti TAMAMEN boşalttığı için, checkout akışının devam edebilmesi için aşağıdaki istekte ana ürün tekrar sepete eklenir."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"sepet boş\", () => pm.expect(pm.response.json().data.items).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sepete Tekrar Ürün Ekle (Ödeme İçin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "**Ne yapar:** \"Sepeti Boşalt\" testinden sonra, 05-Orders klasörünün sipariş oluşturabilmesi için ana ürünü sepete tekrar ekler.\n\n**Gerekli rol:** `customer`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "const line = json.data.items.find((i) => i.productId === pm.environment.get(\"product_id\"));",
+                  "if (line) { pm.environment.set(\"cart_item_unit_price\", line.unitPrice); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Orders",
+      "description": "Müşteri sipariş akışı (`authenticate` + `authorize(\"customer\")`). Ana sipariş (`order_id`) 06-Payments'ta ödenecektir; iptal senaryosu ayrı, tek kullanımlık bir sipariş (`cancel_order_id`) üzerinde gösterilir ki ana sipariş etkilenmesin.",
+      "item": [
+        {
+          "name": "Sipariş Oluştur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "**Ne yapar:** Sepetteki ürünlerden bir sipariş oluşturur; sipariş içeriği İSTEMCİDEN gönderilmez, body bilinçli olarak boştur — sunucu o anki sepeti okuyup doğrular. Stok düşümü + sipariş oluşturma + sepet temizleme tek bir transaction içindedir.\n\n**Gerekli rol:** `customer`.\n\n**Dikkat — PRICE SNAPSHOT:** Sipariş satırındaki `price`, sepete eklerken kaydedilen `cart_item_unit_price` ile karşılaştırılır; bu, sipariş satırının canlı ürün fiyatını değil, o anki SNAPSHOT'ı taşıdığını doğrular.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"status === PENDING_PAYMENT\", () => pm.expect(json.data.status).to.eql(\"PENDING_PAYMENT\"));",
+                  "const line = json.data.items.find((i) => i.productId === pm.environment.get(\"product_id\"));",
+                  "pm.test(\"sipariş satırı bulundu\", () => pm.expect(line).to.not.be.undefined);",
+                  "pm.test(\"sipariş satırı price snapshot'tır (sepetteki fiyatla eşleşir)\", () => pm.expect(line.price).to.eql(Number(pm.environment.get(\"cart_item_unit_price\"))));",
+                  "pm.environment.set(\"order_id\", json.data._id);",
+                  "pm.environment.set(\"order_number\", json.data.orderNumber);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Siparişlerimi Listele",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders?page=1&limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** Giriş yapan müşterinin siparişlerini sayfalanmış şekilde listeler.\n\n**Gerekli rol:** `customer`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data;",
+                  "pm.test(\"yeni sipariş listede\", () => pm.expect(items.some((o) => o._id === pm.environment.get(\"order_id\"))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sipariş Detayını Getir",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{order_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Sahibi olunan bir siparişin detayını getirir.\n\n**Gerekli rol:** `customer` + sahiplik."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"_id === order_id\", () => pm.expect(pm.response.json().data._id).to.eql(pm.environment.get(\"order_id\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "İptal İçin Sepete Ürün Ekle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "**Ne yapar:** İptal senaryosunu göstermek için AYRI bir sipariş yaratılacak; bu istek o siparişin sepetini hazırlar (ana `order_id` siparişini etkilemez, çünkü o zaten sepeti temizleyip oluşturulmuştu).\n\n**Gerekli rol:** `customer`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "İptal Edilecek İkinci Sipariş Oluştur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "**Ne yapar:** Yalnızca iptal akışını göstermek için ikinci, tek kullanımlık bir sipariş oluşturur.\n\n**Gerekli rol:** `customer`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.environment.set(\"cancel_order_id\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Siparişi İptal Et",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders/{{cancel_order_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{cancel_order_id}}",
+                "cancel"
+              ]
+            },
+            "description": "**Ne yapar:** `PENDING_PAYMENT` durumundaki siparişi iptal eder; düşülen stok atomik olarak iade edilir.\n\n**Gerekli rol:** `customer` + sahiplik.\n\n**Dikkat:** Bu istek yalnızca yukarıda oluşturulan `cancel_order_id`'yi etkiler — asıl `order_id` (06-Payments'ta ödenecek sipariş) bundan ETKİLENMEZ."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"status === CANCELLED\", () => pm.expect(pm.response.json().data.status).to.eql(\"CANCELLED\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Payments",
+      "description": "FakePay ile ödeme (`authenticate` + `authorize(\"customer\")`). Ana sipariş (`order_id`) başarılı kartla ödenir; başarısız/tekrar deneme akışı AYRI bir sipariş (`decline_order_id`) üzerinde gösterilir.",
+      "item": [
+        {
+          "name": "Ödeme - Başarılı Kart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/payments/pay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "pay"
+              ]
+            },
+            "description": "**Ne yapar:** Ana siparişi (`order_id`), FakePay'in her zaman `SUCCEEDED` döndürdüğü test kartıyla öder.\n\n**Gerekli rol:** `customer` + sahiplik. Sıkı rate limit uygulanır (15 dakikada 20 istek).\n\n**Dikkat:** `Idempotency-Key` header'ı her denemede YENİ bir `{{$guid}}` ile üretilir (gerçek istemci sayfa mount'unda BİR KEZ üretir ve o deneme boyunca sabit tutar — burada Postman'de her istek ayrı bir \"mount\" simüle eder). Yanıtta `cardNumber`/`cvv`/`expiry` KESİNLİKLE bulunmamalıdır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{order_id}}\",\n  \"cardNumber\": \"4242424242424242\",\n  \"cardHolder\": \"ALI TOPBAS\",\n  \"expiry\": \"12/30\",\n  \"cvv\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"payment.status === SUCCEEDED\", () => pm.expect(json.data.payment.status).to.eql(\"SUCCEEDED\"));",
+                  "pm.test(\"order.status === PAID\", () => pm.expect(json.data.order.status).to.eql(\"PAID\"));",
+                  "pm.test(\"cardNumber/cvv/expiry response'ta yok\", () => { pm.expect(json.data.payment).to.not.have.property(\"cardNumber\"); pm.expect(json.data.payment).to.not.have.property(\"cvv\"); pm.expect(json.data.payment).to.not.have.property(\"expiry\"); });",
+                  "pm.test(\"yalnızca cardLast4 + cardBrand var\", () => { pm.expect(json.data.payment.cardLast4).to.eql(\"4242\"); pm.expect(json.data.payment).to.have.property(\"cardBrand\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Başarısız Ödeme İçin Sepete Ürün Ekle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart/items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "**Ne yapar:** Başarısız ödeme + tekrar deneme akışını göstermek için AYRI bir sipariş hazırlar (ana sipariş zaten `PAID`, tekrar ödenemez).\n\n**Gerekli rol:** `customer`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Başarısız Ödeme İçin Sipariş Oluştur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "**Ne yapar:** Başarısız ödeme demosu için tek kullanımlık bir sipariş oluşturur.\n\n**Gerekli rol:** `customer`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.environment.set(\"decline_order_id\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ödeme - Başarısız Kart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/payments/pay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "pay"
+              ]
+            },
+            "description": "**Ne yapar:** FakePay'in her zaman `CARD_DECLINED` ile reddettiği test kartıyla ödeme dener.\n\n**Gerekli rol:** `customer` + sahiplik.\n\n**Dikkat:** Bu istek HTTP olarak `200` döner (endpoint'in kendisi başarılıdır) — iş sonucu başarısızdır (`payment.status: FAILED`). Sipariş `PAYMENT_FAILED`'e geçer ve düşülen stok GERİ VERİLMEZ (müşteri aynı siparişle tekrar deneyebilsin diye).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{decline_order_id}}\",\n  \"cardNumber\": \"4000000000000000\",\n  \"cardHolder\": \"ALI TOPBAS\",\n  \"expiry\": \"12/30\",\n  \"cvv\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"payment.status === FAILED\", () => pm.expect(json.data.payment.status).to.eql(\"FAILED\"));",
+                  "pm.test(\"failureReason === CARD_DECLINED\", () => pm.expect(json.data.payment.failureReason).to.eql(\"CARD_DECLINED\"));",
+                  "pm.test(\"order.status === PAYMENT_FAILED\", () => pm.expect(json.data.order.status).to.eql(\"PAYMENT_FAILED\"));",
+                  "pm.test(\"cardNumber/cvv response'ta yok\", () => { pm.expect(json.data.payment).to.not.have.property(\"cardNumber\"); pm.expect(json.data.payment).to.not.have.property(\"cvv\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tekrar Dene (Başarılı Kart)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/payments/pay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "pay"
+              ]
+            },
+            "description": "**Ne yapar:** Az önce başarısız olan siparişi, doğru kartla TEKRAR öder — README'deki \"Tekrar Dene\" akışını simüle eder (gerçek akışta bu YENİ bir idempotency anahtarı üretir, aksi halde backend aynı başarısız sonucu tekrar döner; bu yüzden burada da yeni bir `{{$guid}}` kullanılır).\n\n**Gerekli rol:** `customer` + sahiplik.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{decline_order_id}}\",\n  \"cardNumber\": \"4242424242424242\",\n  \"cardHolder\": \"ALI TOPBAS\",\n  \"expiry\": \"12/30\",\n  \"cvv\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"payment.status === SUCCEEDED\", () => pm.expect(json.data.payment.status).to.eql(\"SUCCEEDED\"));",
+                  "pm.test(\"order.status === PAID\", () => pm.expect(json.data.order.status).to.eql(\"PAID\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sipariş Ödeme Geçmişini Getir",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/payments/order/{{decline_order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "order",
+                "{{decline_order_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Bir siparişe ait TÜM ödeme denemelerini (başarılı + başarısız) en yeniden en eskiye listeler; bu istekte hem az önceki `FAILED` hem de `SUCCEEDED` deneme görünmelidir.\n\n**Gerekli rol:** `customer` + sahiplik."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const payments = pm.response.json().data;",
+                  "pm.test(\"en az 2 ödeme denemesi var\", () => pm.expect(payments.length).to.be.at.least(2));",
+                  "pm.test(\"hem FAILED hem SUCCEEDED durumu var\", () => { const statuses = payments.map((p) => p.status); pm.expect(statuses).to.include(\"FAILED\"); pm.expect(statuses).to.include(\"SUCCEEDED\"); });",
+                  "pm.test(\"hiçbir kayıtta cardNumber/cvv yok\", () => { payments.forEach((p) => { pm.expect(p).to.not.have.property(\"cardNumber\"); pm.expect(p).to.not.have.property(\"cvv\"); }); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Seller Orders",
+      "description": "Satıcının kendisine gelen siparişleri yönetmesi (`authenticate` + `authorize(\"seller\")`). Ana sipariş (`order_id`, 06'da ödendi) burada kargoya verilip teslim edilmiş olarak işaretlenir.",
+      "item": [
+        {
+          "name": "Gelen Siparişleri Listele",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/orders?page=1&limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** Satıcıya gelen siparişleri listeler; her siparişte YALNIZCA bu satıcıya ait satırlar döner.\n\n**Gerekli rol:** `seller`.\n\n**Dikkat:** Response'ta `totalPrice` DEĞİL `sellerSubtotal` bulunmalıdır — `totalPrice` siparişteki diğer satıcıların satırlarını da içerir, bir satıcının kendi payı olmayan bir tutarı görmesi hem yanıltıcı hem de diğer satıcının cirosunu dolaylı sızdırır."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data;",
+                  "pm.test(\"ödenen sipariş listede\", () => pm.expect(items.some((o) => o._id === pm.environment.get(\"order_id\"))).to.be.true);",
+                  "pm.test(\"totalPrice alanı YOK, sellerSubtotal VAR\", () => { items.forEach((o) => { pm.expect(o).to.not.have.property(\"totalPrice\"); pm.expect(o).to.have.property(\"sellerSubtotal\"); }); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gelen Sipariş Detayını Getir",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/orders/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "orders",
+                "{{order_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Gelen bir siparişin detayını getirir.\n\n**Gerekli rol:** `seller` (bu satıcının en az bir satırı olması gerekir; aksi halde varlığı sızdırmamak için 403 yerine 404 döner).\n\n**Dikkat:** `buyer` nesnesinde SADECE `name` bulunur — alıcının e-postası hiçbir zaman dönmez."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"_id === order_id\", () => pm.expect(json.data._id).to.eql(pm.environment.get(\"order_id\")));",
+                  "pm.test(\"buyer.email YOK\", () => pm.expect(json.data.buyer).to.not.have.property(\"email\"));",
+                  "pm.test(\"totalPrice alanı YOK\", () => pm.expect(json.data).to.not.have.property(\"totalPrice\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kargoya Ver",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/orders/{{order_id}}/fulfillment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "orders",
+                "{{order_id}}",
+                "fulfillment"
+              ]
+            },
+            "description": "**Ne yapar:** Bu satıcıya ait satırların kargo durumunu `SHIPPED` yapar (yalnızca ödemesi tamamlanmış siparişlerde mümkündür).\n\n**Gerekli rol:** `seller` + sahiplik.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHIPPED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "pm.test(\"tüm satırlar SHIPPED\", () => { items.forEach((i) => pm.expect(i.fulfillmentStatus).to.eql(\"SHIPPED\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Teslim Edildi Olarak İşaretle",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/orders/{{order_id}}/fulfillment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "orders",
+                "{{order_id}}",
+                "fulfillment"
+              ]
+            },
+            "description": "**Ne yapar:** `SHIPPED` durumundaki satırları `DELIVERED`'a taşır (durum makinesi `SHIPPED → DELIVERED` geçişine izin verir).\n\n**Gerekli rol:** `seller` + sahiplik.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELIVERED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "pm.test(\"tüm satırlar DELIVERED\", () => { items.forEach((i) => pm.expect(i.fulfillmentStatus).to.eql(\"DELIVERED\")); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 - Security Tests",
+      "description": "Yetkisiz erişim, rol ihlali ve enjeksiyon denemeleri — hepsinin REDDEDİLMESİ beklenir. Daha kapsamlı, tekrar çalıştırılabilir bir denetim için bkz. `backend/npm run audit:security` (`src/scripts/securityAudit.ts`, 30 test / 7 grup).",
+      "item": [
+        {
+          "name": "Token'sız Korumalı Endpoint'e Erişim",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "**Ne yapar:** `Authorization` header'ı OLMADAN korumalı bir endpoint'e erişmeye çalışır.\n\n**Beklenen:** `401 UNAUTHORIZED` — kimlik doğrulaması olmadan hiçbir korumalı kaynağa erişilemez."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code === UNAUTHORIZED', () => pm.expect(pm.response.json().error.code).to.eql(\"UNAUTHORIZED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bozuk Token ile Erişim",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer bu.gecerli.olmayan.bir.token",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "**Ne yapar:** Yapısal olarak bozuk (imzasız/geçersiz) bir token ile erişmeye çalışır.\n\n**Beklenen:** `401` — `TOKEN_INVALID` veya `UNAUTHORIZED` (jsonwebtoken'ın attığı hatanın türüne göre değişebilir)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code beklenen kodlardan biri', () => pm.expect([\"TOKEN_INVALID\",\"UNAUTHORIZED\"]).to.include(pm.response.json().error.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rol İhlali: Customer, Seller Endpoint'ine Erişiyor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products"
+              ]
+            },
+            "description": "**Ne yapar:** `customer` rolündeki bir kullanıcı, `seller`'a özel bir endpoint'e ürün oluşturmaya çalışır.\n\n**Beklenen:** `403 FORBIDDEN` — `authorize(\"seller\")` rol kontrolünde reddeder, ürün OLUŞMAMALIDIR.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yetkisiz Ürün\",\n  \"description\": \"Bu istek asla başarılı olmamalı\",\n  \"price\": 10,\n  \"stock\": 1,\n  \"category\": \"other\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code === FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rol İhlali: Seller, Customer Endpoint'ine Erişiyor",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "**Ne yapar:** `seller` rolündeki bir kullanıcı, `customer`'a özel sepet endpoint'ine erişmeye çalışır.\n\n**Beklenen:** `403 FORBIDDEN`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code === FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "IDOR: Seller 2, Seller 1'in Ürününü Güncellemeye Çalışıyor",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller2_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seller/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seller",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "**Ne yapar:** Seller 2, kendisine ait OLMAYAN bir ürünü (`product_id`, Seller 1'e ait) güncellemeye çalışır.\n\n**Beklenen:** `403 FORBIDDEN` — `authorize(\"seller\")` rol açısından izin verir (ikisi de seller), asıl reddi service katmanındaki SAHİPLİK kontrolü (`sellerId === req.user.id`) yapar. Bu ayrımı atlamak klasik bir IDOR açığıdır.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stock\": 999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code === FORBIDDEN', () => pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enjeksiyon: Login'de NoSQL Operatör Denemesi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**Ne yapar:** `email`/`password` alanlarına string yerine MongoDB operatörü (`$ne`) içeren birer nesne gönderir — amaç, doğrulamayı atlayıp \"herhangi bir kullanıcı\" ile eşleşmeye çalışmaktır.\n\n**Beklenen:** `422 VALIDATION_ERROR` — iki bağımsız savunma katmanı bunu engeller: `sanitizeInput` `$`ile başlayan anahtarları siler, kalan boş nesneyi de `z.email()`/`z.string()` bir string OLMADIĞI için reddeder. Asla `200` ile bir token dönmemelidir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": {\n    \"$ne\": null\n  },\n  \"password\": {\n    \"$ne\": null\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code === VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enjeksiyon: Query'de Operatör Denemesi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?category[$ne]=food",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category[$ne]",
+                  "value": "food"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** `category` filtresine düz bir string yerine `{ $ne: \"food\" }` gibi bir nesne enjekte etmeye çalışır (Express'in query parser'ı `category[$ne]=food`'u iç içe bir nesneye çevirir).\n\n**Beklenen:** `422 VALIDATION_ERROR` — `z.enum(PRODUCT_CATEGORIES)` bir nesne kabul etmez; `express-mongo-sanitize` gibi paketler KULLANILMAZ (Express 5'te `req.query` salt-okunur bir getter'dır), asıl savunma katmanı Zod şemasının kendisidir."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code === VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enjeksiyon: Parametre Kirliliği (page=1&page=2)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?page=1&page=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page",
+                  "value": "2"
+                }
+              ]
+            },
+            "description": "**Ne yapar:** Aynı query anahtarını iki kez gönderir (`page=1&page=2`); Express'in query parser'ı bunu bir DİZİYE (`[\"1\",\"2\"]`) çevirir.\n\n**Beklenen:** `422 VALIDATION_ERROR` — `z.coerce.number()` bir diziyi geçerli bir sayıya çeviremez."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"success: false\", () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('error.code === VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enjeksiyon: Prototype Pollution Denemesi (__proto__)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "**Ne yapar:** Request body'sine `__proto__` anahtarıyla prototype pollution denemesi ekler.\n\n**Beklenen:** `201` — kayıt NORMAL şekilde başarılı olur (bu bir hata değildir); `sanitizeInput` middleware'i tehlikeli anahtarı sessizce siler, kalan geçerli alanlarla kayıt işlenir. Dönen kullanıcı nesnesinde beklenmeyen hiçbir ekstra alan (ör. `isAdmin`) BULUNMAMALIDIR.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Prototype Test\",\n  \"email\": \"proto.test.{{$timestamp}}@example.com\",\n  \"password\": \"Test1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Durum kodu 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"success: true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"isAdmin alanı sızmadı\", () => pm.expect(json.data.user).to.not.have.property(\"isAdmin\"));",
+                  "pm.test(\"user nesnesi yalnızca beklenen alanları içeriyor\", () => { const keys = Object.keys(json.data.user).sort(); pm.expect(keys).to.eql([\"_id\", \"createdAt\", \"email\", \"name\", \"role\", \"updatedAt\"]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
