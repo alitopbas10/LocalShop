@@ -59,34 +59,16 @@ yönetir (kargoya ver / teslim edildi).**
   üretilir (Swagger UI + statik JSON), ek olarak otomatik token/id zincirlemeli bir Postman
   koleksiyonu bulunur.
 
-### Ekran Görüntüleri
-
-> TODO — demo videosu çekilirken doldurulacak. Aşağıdaki 7 akışın (bkz.
-> [Özellikler → Uçtan Uca Kullanıcı Akışları](#uçtan-uca-kullanıcı-akışları)) her birinden
-> en az bir ekran görüntüsü planlanıyor:
-
-- [ ] Satıcı kaydı (`/register`, seçili "Satıcı" kartı)
-- [ ] Ürün ekleme formu (`/seller/products/new`)
-- [ ] Katalog (`/products`, filtreler açık)
-- [ ] Ürün detayı + sepete ekle (`/products/:id`)
-- [ ] Sepet (`/cart`, sorun uyarısı olan bir satırla)
-- [ ] Ödeme formu ve başarı ekranı (`/payment/:orderId`)
-- [ ] Satıcı sipariş yönetimi (`/seller/orders`, "Kargoya Ver" onay modalı)
-
-### Demo Video
-
-> TODO — teslim öncesi doldurulacak.
-
 ## Teknoloji Yığını
 
-| Katman            | Teknoloji                                                                 |
-| ------------------ | -------------------------------------------------------------------------- |
-| **Backend**        | Node.js 20+, Express 5, TypeScript 6 (strict mod), Mongoose 9, Zod 4       |
-| Backend — yardımcı  | dotenv, cors, helmet, morgan, express-rate-limit, jsonwebtoken, bcryptjs, tsconfig-paths |
-| **Frontend**        | React 19, TypeScript 6, Vite 8, React Router 7, styled-components 6, Axios 1 |
-| **Veritabanı**      | MongoDB Atlas (M0 ücretsiz tier — yönetilen replica set, transaction desteği hazır gelir) |
-| **API Dokümantasyonu** | OpenAPI 3.1 (Zod şemalarından programatik üretilir) + Swagger UI + Postman/Newman |
-| **Test/Doğrulama**  | Uçtan uca güvenlik denetim script'i (`securityAudit.ts`), Newman ile doğrulanmış Postman koleksiyonu |
+| Katman                 | Teknoloji                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Backend**            | Node.js 20+, Express 5, TypeScript 6 (strict mod), Mongoose 9, Zod 4                                 |
+| Backend — yardımcı     | dotenv, cors, helmet, morgan, express-rate-limit, jsonwebtoken, bcryptjs, tsconfig-paths             |
+| **Frontend**           | React 19, TypeScript 6, Vite 8, React Router 7, styled-components 6, Axios 1                         |
+| **Veritabanı**         | MongoDB Atlas (M0 ücretsiz tier — yönetilen replica set, transaction desteği hazır gelir)            |
+| **API Dokümantasyonu** | OpenAPI 3.1 (Zod şemalarından programatik üretilir) + Swagger UI + Postman/Newman                    |
+| **Test/Doğrulama**     | Uçtan uca güvenlik denetim script'i (`securityAudit.ts`), Newman ile doğrulanmış Postman koleksiyonu |
 
 Backend `type: "commonjs"`, frontend `type: "module"` olarak yapılandırılmıştır; ikisi de
 bağımsız `package.json`'a sahip ayrı npm projeleridir (monorepo aracı — Turborepo, Nx vb. —
@@ -401,23 +383,23 @@ state'e yazar; ayrı bir "tazeleme" isteği gerekmez.
 
 **Route tablosu:**
 
-| Yol                          | Sayfa                    | Erişim                                    |
-| ----------------------------- | ------------------------- | ------------------------------------------- |
-| `/`, `/products`              | `ProductListPage`         | public                                      |
-| `/products/:id`               | `ProductDetailPage`       | public                                      |
-| `/login`                      | `LoginPage`                | public (giriş yapmışsa `/`'e yönlendirilir) |
-| `/register`                   | `RegisterPage`             | public (giriş yapmışsa `/`'e yönlendirilir) |
-| `/cart`                       | `CartPage`                 | customer                                    |
-| `/orders`                     | `OrderListPage`            | customer                                    |
-| `/orders/:id`                 | `OrderDetailPage`          | customer                                    |
-| `/payment/:orderId`           | `PaymentPage`              | customer                                    |
-| `/seller`                     | `SellerDashboardPage`      | seller                                      |
-| `/seller/products`            | `SellerProductListPage`    | seller                                      |
-| `/seller/products/new`        | `SellerProductNewPage`     | seller                                      |
-| `/seller/products/:id/edit`   | `SellerProductEditPage`    | seller                                      |
-| `/seller/orders`              | `SellerOrdersPage`         | seller                                      |
-| `/seller/orders/:id`          | `SellerOrderDetailPage`    | seller                                      |
-| `*`                           | `NotFoundPage`             | public                                      |
+| Yol                         | Sayfa                   | Erişim                                      |
+| --------------------------- | ----------------------- | ------------------------------------------- |
+| `/`, `/products`            | `ProductListPage`       | public                                      |
+| `/products/:id`             | `ProductDetailPage`     | public                                      |
+| `/login`                    | `LoginPage`             | public (giriş yapmışsa `/`'e yönlendirilir) |
+| `/register`                 | `RegisterPage`          | public (giriş yapmışsa `/`'e yönlendirilir) |
+| `/cart`                     | `CartPage`              | customer                                    |
+| `/orders`                   | `OrderListPage`         | customer                                    |
+| `/orders/:id`               | `OrderDetailPage`       | customer                                    |
+| `/payment/:orderId`         | `PaymentPage`           | customer                                    |
+| `/seller`                   | `SellerDashboardPage`   | seller                                      |
+| `/seller/products`          | `SellerProductListPage` | seller                                      |
+| `/seller/products/new`      | `SellerProductNewPage`  | seller                                      |
+| `/seller/products/:id/edit` | `SellerProductEditPage` | seller                                      |
+| `/seller/orders`            | `SellerOrdersPage`      | seller                                      |
+| `/seller/orders/:id`        | `SellerOrderDetailPage` | seller                                      |
+| `*`                         | `NotFoundPage`          | public                                      |
 
 `/seller/*` route'ları ayrıca `SellerLayout` ile sarılır (Panel/Ürünlerim/Siparişler sekmeli
 navigasyon). `customer`/`seller` erişimi `ProtectedRoute allowedRoles={[...]}` ile uygulanır.
@@ -510,13 +492,13 @@ testleri için `stock: 0`, birkaçı da `isActive: false` olarak işaretlidir.
 
 **Test hesapları** (hepsinde şifre `Test1234`):
 
-| Rol      | E-posta                  |
-| -------- | ------------------------- |
-| seller   | seller1@localshop.dev     |
-| seller   | seller2@localshop.dev     |
-| seller   | seller3@localshop.dev     |
-| customer | customer1@localshop.dev   |
-| customer | customer2@localshop.dev   |
+| Rol      | E-posta                 |
+| -------- | ----------------------- |
+| seller   | seller1@localshop.dev   |
+| seller   | seller2@localshop.dev   |
+| seller   | seller3@localshop.dev   |
+| customer | customer1@localshop.dev |
+| customer | customer2@localshop.dev |
 
 ## API Dokümantasyonu
 
@@ -723,16 +705,16 @@ Kullanıcı `POST /api/auth/register` veya `POST /api/auth/login` ile bir JWT ac
 alır; bu token, korumalı endpoint'lere yapılan her istekte `Authorization: Bearer <token>`
 header'ı ile gönderilir.
 
-| Rol        | Yetkiler                                                       |
-| ---------- | ---------------------------------------------------------------- |
-| `customer` | Ürünleri görüntüler, sepete ekler, sipariş oluşturur              |
-| `seller`   | Ürün ekler/düzenler, kendi ürünlerine ait siparişleri yönetir     |
+| Rol        | Yetkiler                                                      |
+| ---------- | ------------------------------------------------------------- |
+| `customer` | Ürünleri görüntüler, sepete ekler, sipariş oluşturur          |
+| `seller`   | Ürün ekler/düzenler, kendi ürünlerine ait siparişleri yönetir |
 
-| Method | Endpoint              | Açıklama                                   | Yetki          |
-| ------ | ---------------------- | -------------------------------------------- | -------------- |
-| POST   | `/api/auth/register`  | Yeni kullanıcı kaydı                         | Herkese açık   |
-| POST   | `/api/auth/login`     | Giriş yapar, JWT access token döner          | Herkese açık   |
-| GET    | `/api/auth/me`        | Giriş yapmış kullanıcının bilgisini döner    | `authenticate` |
+| Method | Endpoint             | Açıklama                                  | Yetki          |
+| ------ | -------------------- | ----------------------------------------- | -------------- |
+| POST   | `/api/auth/register` | Yeni kullanıcı kaydı                      | Herkese açık   |
+| POST   | `/api/auth/login`    | Giriş yapar, JWT access token döner       | Herkese açık   |
+| GET    | `/api/auth/me`       | Giriş yapmış kullanıcının bilgisini döner | `authenticate` |
 
 Alınan somut güvenlik önlemleri (bcrypt, user enumeration/timing attack koruması, JWT
 algorithm pinning, rate limiting) [Güvenlik](#güvenlik) bölümünde listelenir; refresh
@@ -745,14 +727,14 @@ Seller, kendi ürünlerini `/api/seller/products` altındaki endpoint'ler üzeri
 Bu endpoint'lerin tamamı `authenticate` ve `authorize("seller")` ile korunur; ayrıca her
 istek, ilgili ürünün gerçekten o seller'a ait olduğunu service katmanında doğrular.
 
-| Method | Endpoint                             | Açıklama                                              | Gerekli Rol |
-| ------ | ------------------------------------- | -------------------------------------------------------- | ----------- |
-| POST   | `/api/seller/products`               | Yeni ürün oluşturur                                       | `seller`    |
-| GET    | `/api/seller/products`               | Kendi ürünlerini listeler (sayfalama, filtre, sıralama)   | `seller`    |
-| GET    | `/api/seller/products/:id`           | Kendi ürününün detayını getirir                           | `seller`    |
-| PATCH  | `/api/seller/products/:id`           | Ürünü günceller (partial — sadece gönderilen alanlar)     | `seller`    |
-| DELETE | `/api/seller/products/:id`           | Ürünü pasifleştirir (soft delete)                          | `seller`    |
-| PATCH  | `/api/seller/products/:id/activate`  | Pasifleştirilmiş ürünü tekrar aktive eder                  | `seller`    |
+| Method | Endpoint                            | Açıklama                                                | Gerekli Rol |
+| ------ | ----------------------------------- | ------------------------------------------------------- | ----------- |
+| POST   | `/api/seller/products`              | Yeni ürün oluşturur                                     | `seller`    |
+| GET    | `/api/seller/products`              | Kendi ürünlerini listeler (sayfalama, filtre, sıralama) | `seller`    |
+| GET    | `/api/seller/products/:id`          | Kendi ürününün detayını getirir                         | `seller`    |
+| PATCH  | `/api/seller/products/:id`          | Ürünü günceller (partial — sadece gönderilen alanlar)   | `seller`    |
+| DELETE | `/api/seller/products/:id`          | Ürünü pasifleştirir (soft delete)                       | `seller`    |
+| PATCH  | `/api/seller/products/:id/activate` | Pasifleştirilmiş ürünü tekrar aktive eder               | `seller`    |
 
 Kategoriler: `food`, `beverage`, `handcraft`, `textile`, `cosmetics`, `home`, `other`.
 
@@ -762,21 +744,21 @@ Customer, `/api/products` altındaki endpoint'ler üzerinden herkese açık kata
 Bu endpoint'ler kimlik doğrulaması gerektirmez; yalnızca aktif (`isActive: true`) ürünler
 listelenir.
 
-| Method | Endpoint                  | Açıklama                                                       | Yetki        |
-| ------ | -------------------------- | ------------------------------------------------------------------ | ------------ |
-| GET    | `/api/products`            | Aktif ürünleri listeler (sayfalama, filtre, arama, sıralama)        | Herkese açık |
-| GET    | `/api/products/:id`        | Aktif bir ürünün detayını getirir                                   | Herkese açık |
-| GET    | `/api/products/categories` | Her kategorideki aktif ürün sayısını döndürür                       | Herkese açık |
+| Method | Endpoint                   | Açıklama                                                     | Yetki        |
+| ------ | -------------------------- | ------------------------------------------------------------ | ------------ |
+| GET    | `/api/products`            | Aktif ürünleri listeler (sayfalama, filtre, arama, sıralama) | Herkese açık |
+| GET    | `/api/products/:id`        | Aktif bir ürünün detayını getirir                            | Herkese açık |
+| GET    | `/api/products/categories` | Her kategorideki aktif ürün sayısını döndürür                | Herkese açık |
 
-| Parametre  | Tip    | Varsayılan                                    | Örnek            |
-| ---------- | ------ | ------------------------------------------------ | ----------------- |
-| `page`     | number | `1`                                                | `page=2`           |
-| `limit`    | number | `20`                                               | `limit=10`         |
-| `category` | string | —                                                   | `category=food`    |
-| `search`   | string | —                                                   | `search=kayısı`     |
-| `minPrice` | number | —                                                   | `minPrice=50`       |
-| `maxPrice` | number | —                                                   | `maxPrice=200`      |
-| `sort`     | string | `search` verilmişse `relevance`, yoksa `newest`     | `sort=priceAsc`     |
+| Parametre  | Tip    | Varsayılan                                      | Örnek           |
+| ---------- | ------ | ----------------------------------------------- | --------------- |
+| `page`     | number | `1`                                             | `page=2`        |
+| `limit`    | number | `20`                                            | `limit=10`      |
+| `category` | string | —                                               | `category=food` |
+| `search`   | string | —                                               | `search=kayısı` |
+| `minPrice` | number | —                                               | `minPrice=50`   |
+| `maxPrice` | number | —                                               | `maxPrice=200`  |
+| `sort`     | string | `search` verilmişse `relevance`, yoksa `newest` | `sort=priceAsc` |
 
 `sort` için geçerli değerler: `newest`, `priceAsc`, `priceDesc`, `relevance` (yalnızca
 `search` ile birlikte kullanılabilir). Arama MongoDB text index ile yapılır (regex değil) —
@@ -788,13 +770,13 @@ Customer, `/api/cart` altındaki endpoint'ler üzerinden kendi sepetini yönetir
 endpoint'lerin tamamı `authenticate` ve `authorize("customer")` ile korunur; her
 kullanıcının tek bir sepeti olur (`Cart.userId` üzerinde `unique` index).
 
-| Method | Endpoint                       | Açıklama                                                          | Gerekli Rol |
-| ------ | ------------------------------- | ---------------------------------------------------------------------- | ----------- |
-| GET    | `/api/cart`                    | Sepeti, güncel ürün bilgisiyle zenginleştirilmiş halde getirir         | `customer`  |
-| POST   | `/api/cart/items`              | Sepete ürün ekler (varsa adedini artırır)                              | `customer`  |
-| PATCH  | `/api/cart/items/:productId`   | Bir kalemin adedini mutlak olarak günceller                            | `customer`  |
-| DELETE | `/api/cart/items/:productId`   | Bir kalemi sepetten çıkarır                                            | `customer`  |
-| DELETE | `/api/cart`                    | Sepeti tamamen boşaltır                                                | `customer`  |
+| Method | Endpoint                     | Açıklama                                                       | Gerekli Rol |
+| ------ | ---------------------------- | -------------------------------------------------------------- | ----------- |
+| GET    | `/api/cart`                  | Sepeti, güncel ürün bilgisiyle zenginleştirilmiş halde getirir | `customer`  |
+| POST   | `/api/cart/items`            | Sepete ürün ekler (varsa adedini artırır)                      | `customer`  |
+| PATCH  | `/api/cart/items/:productId` | Bir kalemin adedini mutlak olarak günceller                    | `customer`  |
+| DELETE | `/api/cart/items/:productId` | Bir kalemi sepetten çıkarır                                    | `customer`  |
+| DELETE | `/api/cart`                  | Sepeti tamamen boşaltır                                        | `customer`  |
 
 <details>
 <summary>Örnek sepet response'u (sorunlu bir satır dahil)</summary>
@@ -807,7 +789,13 @@ kullanıcının tek bir sepeti olur (`Cart.userId` üzerinde `unique` index).
       {
         "productId": "665f1a2b3c4d5e6f7a8b9c0d",
         "quantity": 2,
-        "product": { "_id": "665f1a2b3c4d5e6f7a8b9c0d", "name": "Kuru Kayısı (500g)", "price": 85, "category": "food", "stock": 45 },
+        "product": {
+          "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+          "name": "Kuru Kayısı (500g)",
+          "price": 85,
+          "category": "food",
+          "stock": 45
+        },
         "unitPrice": 85,
         "lineTotal": 170,
         "available": true,
@@ -817,7 +805,13 @@ kullanıcının tek bir sepeti olur (`Cart.userId` üzerinde `unique` index).
       {
         "productId": "665f1a2b3c4d5e6f7a8b9c1e",
         "quantity": 3,
-        "product": { "_id": "665f1a2b3c4d5e6f7a8b9c1e", "name": "El Dokuma Yün Kilim", "price": 1450, "category": "textile", "stock": 1 },
+        "product": {
+          "_id": "665f1a2b3c4d5e6f7a8b9c1e",
+          "name": "El Dokuma Yün Kilim",
+          "price": 1450,
+          "category": "textile",
+          "stock": 1
+        },
         "unitPrice": 1450,
         "lineTotal": 4350,
         "available": false,
@@ -830,7 +824,13 @@ kullanıcının tek bir sepeti olur (`Cart.userId` üzerinde `unique` index).
     "subtotal": 170,
     "hasIssues": true,
     "issues": [
-      { "productId": "665f1a2b3c4d5e6f7a8b9c1e", "productName": "El Dokuma Yün Kilim", "issue": "INSUFFICIENT_STOCK", "requested": 3, "available": 1 }
+      {
+        "productId": "665f1a2b3c4d5e6f7a8b9c1e",
+        "productName": "El Dokuma Yün Kilim",
+        "issue": "INSUFFICIENT_STOCK",
+        "requested": 3,
+        "available": 1
+      }
     ]
   }
 }
@@ -855,20 +855,20 @@ Customer, sepetini `POST /api/orders` ile siparişe çevirir; sipariş birden fa
 
 **Müşteri:**
 
-| Method | Endpoint                  | Açıklama                                                            | Gerekli Rol |
-| ------ | -------------------------- | ------------------------------------------------------------------------ | ----------- |
-| POST   | `/api/orders`              | Sepetten sipariş oluşturur (body boştur)                                  | `customer`  |
-| GET    | `/api/orders`              | Kendi siparişlerini listeler (sayfalama, durum filtresi, sıralama)        | `customer`  |
-| GET    | `/api/orders/:id`          | Kendi siparişinin detayını getirir                                        | `customer`  |
-| PATCH  | `/api/orders/:id/cancel`   | Siparişi iptal eder, rezerve edilen stoğu iade eder                       | `customer`  |
+| Method | Endpoint                 | Açıklama                                                           | Gerekli Rol |
+| ------ | ------------------------ | ------------------------------------------------------------------ | ----------- |
+| POST   | `/api/orders`            | Sepetten sipariş oluşturur (body boştur)                           | `customer`  |
+| GET    | `/api/orders`            | Kendi siparişlerini listeler (sayfalama, durum filtresi, sıralama) | `customer`  |
+| GET    | `/api/orders/:id`        | Kendi siparişinin detayını getirir                                 | `customer`  |
+| PATCH  | `/api/orders/:id/cancel` | Siparişi iptal eder, rezerve edilen stoğu iade eder                | `customer`  |
 
 **Satıcı:**
 
-| Method | Endpoint                              | Açıklama                                                          | Gerekli Rol |
-| ------ | --------------------------------------- | ---------------------------------------------------------------------- | ----------- |
-| GET    | `/api/seller/orders`                   | Kendisine gelen siparişleri listeler (yalnızca kendi satırları)         | `seller`    |
-| GET    | `/api/seller/orders/:id`               | Gelen bir siparişin detayını getirir (yalnızca kendi satırları)         | `seller`    |
-| PATCH  | `/api/seller/orders/:id/fulfillment`   | Kendi satırlarının kargo durumunu günceller (`SHIPPED`/`DELIVERED`)     | `seller`    |
+| Method | Endpoint                             | Açıklama                                                            | Gerekli Rol |
+| ------ | ------------------------------------ | ------------------------------------------------------------------- | ----------- |
+| GET    | `/api/seller/orders`                 | Kendisine gelen siparişleri listeler (yalnızca kendi satırları)     | `seller`    |
+| GET    | `/api/seller/orders/:id`             | Gelen bir siparişin detayını getirir (yalnızca kendi satırları)     | `seller`    |
+| PATCH  | `/api/seller/orders/:id/fulfillment` | Kendi satırlarının kargo durumunu günceller (`SHIPPED`/`DELIVERED`) | `seller`    |
 
 ### Ödeme (FakePay)
 
@@ -877,19 +877,19 @@ Customer, `PENDING_PAYMENT` veya `PAYMENT_FAILED` durumundaki bir siparişi
 sunucu içinde simüle edilir (**FakePay**); ödenecek tutar istek gövdesinde YER ALMAZ, sunucu
 tutarı `orderId`'ye ait siparişten okur.
 
-| Kart Numarası          | Sonuç                                    |
-| ------------------------ | ------------------------------------------- |
-| `4242 4242 4242 4242`   | Başarılı (`SUCCEEDED`)                       |
-| `4000 0000 0000 0000`   | Başarısız (`FAILED` / `CARD_DECLINED`)       |
+| Kart Numarası         | Sonuç                                  |
+| --------------------- | -------------------------------------- |
+| `4242 4242 4242 4242` | Başarılı (`SUCCEEDED`)                 |
+| `4000 0000 0000 0000` | Başarısız (`FAILED` / `CARD_DECLINED`) |
 
 Bu iki numara dışındaki her kart Luhn algoritmasına göre değerlendirilir: Luhn'u geçerse
 `CARD_DECLINED`, geçmezse `INVALID_CARD_NUMBER` ile reddedilir — yani simülasyonda yalnızca
 tanımlı test kartları başarılı sonuç üretir.
 
 | Method | Endpoint                       | Açıklama                                                              | Gerekli Rol |
-| ------ | -------------------------------- | -------------------------------------------------------------------------- | ----------- |
-| POST   | `/api/payments/pay`             | Bir sipariş için ödeme başlatır                                             | `customer`  |
-| GET    | `/api/payments/order/:orderId`  | O siparişe ait tüm ödeme denemelerini (başarılı + başarısız) listeler       | `customer`  |
+| ------ | ------------------------------ | --------------------------------------------------------------------- | ----------- |
+| POST   | `/api/payments/pay`            | Bir sipariş için ödeme başlatır                                       | `customer`  |
+| GET    | `/api/payments/order/:orderId` | O siparişe ait tüm ödeme denemelerini (başarılı + başarısız) listeler | `customer`  |
 
 <details>
 <summary>Örnek istek ve yanıt</summary>
@@ -953,16 +953,16 @@ endpoint'ine özel rate limiting için bkz. [Güvenlik](#güvenlik).
 Aşağıdaki tablo, case study'nin güvenlik gereksinim listesini birebir karşılar ve her
 maddenin nerede uygulandığını gösterir:
 
-| Gereksinim               | Uygulama                                                       | Dosya                |
-| -------------------------- | ------------------------------------------------------------------ | --------------------- |
-| password hashing           | bcryptjs, 12 salt round, pre-save hook                               | `user.model.ts`      |
-| JWT authentication          | HS256, algorithm pinning, issuer kontrolü                            | `token.service.ts`   |
-| input validation            | Zod, body/query/params                                                | `validate.ts`        |
-| rate limiting               | global + auth + payment, katmanlı (genel gevşek, özel sıkı)          | `*RateLimit.ts`      |
-| CORS kontrolü               | origin whitelist + kendi origin'i (docs sayfası için), credentials    | `security.ts`        |
-| environment variables       | Zod ile doğrulanan tipli config                                       | `env.ts`              |
-| kart bilgisi saklanmıyor    | yalnızca `cardLast4` + `cardBrand`                                     | `payment.model.ts`   |
-| hassas bilgi response'ta yok | `toJSON` transform, `populate()` alan seçimi                          | —                     |
+| Gereksinim                   | Uygulama                                                           | Dosya              |
+| ---------------------------- | ------------------------------------------------------------------ | ------------------ |
+| password hashing             | bcryptjs, 12 salt round, pre-save hook                             | `user.model.ts`    |
+| JWT authentication           | HS256, algorithm pinning, issuer kontrolü                          | `token.service.ts` |
+| input validation             | Zod, body/query/params                                             | `validate.ts`      |
+| rate limiting                | global + auth + payment, katmanlı (genel gevşek, özel sıkı)        | `*RateLimit.ts`    |
+| CORS kontrolü                | origin whitelist + kendi origin'i (docs sayfası için), credentials | `security.ts`      |
+| environment variables        | Zod ile doğrulanan tipli config                                    | `env.ts`           |
+| kart bilgisi saklanmıyor     | yalnızca `cardLast4` + `cardBrand`                                 | `payment.model.ts` |
+| hassas bilgi response'ta yok | `toJSON` transform, `populate()` alan seçimi                       | —                  |
 
 ### Ek Güvenlik Önlemleri
 
@@ -1023,15 +1023,15 @@ Seed hesaplarını (`seller1`/`seller2`, `customer1`/`customer2`) kullanır, ken
 fixture'larını (sipariş, ürün) HTTP üzerinden oluşturur — DB'ye doğrudan erişmez. 30 test,
 7 grupta:
 
-| Grup | Konu             | Neyi doğrular                                                            |
-| ---- | ----------------- | ---------------------------------------------------------------------------- |
-| A    | Kimlik Doğrulama   | token'sız/bozuk/sahte (`alg:none`)/süresi geçmiş/yanlış secret'lı token'lar   |
-| B    | Yetkilendirme      | rol kısıtı (customer↔seller) ve sahiplik kontrolü (IDOR)                    |
-| C    | Enjeksiyon         | NoSQL operatör enjeksiyonu, parametre kirliliği, prototype pollution         |
-| D    | Veri Sızıntısı     | response'larda password/kart/e-posta/stack trace sızıntısı                  |
-| E    | İş Mantığı         | istemciden gelen amount/sellerId/items, durum geçiş kuralları               |
-| F    | Rate Limiting      | login ve ödeme endpoint'lerinde limit aşımı (**her zaman en son çalışır**)   |
-| G    | Header'lar         | güvenlik header'ları, CORS, trust proxy ile rate-limit atlatma denemesi      |
+| Grup | Konu             | Neyi doğrular                                                               |
+| ---- | ---------------- | --------------------------------------------------------------------------- |
+| A    | Kimlik Doğrulama | token'sız/bozuk/sahte (`alg:none`)/süresi geçmiş/yanlış secret'lı token'lar |
+| B    | Yetkilendirme    | rol kısıtı (customer↔seller) ve sahiplik kontrolü (IDOR)                    |
+| C    | Enjeksiyon       | NoSQL operatör enjeksiyonu, parametre kirliliği, prototype pollution        |
+| D    | Veri Sızıntısı   | response'larda password/kart/e-posta/stack trace sızıntısı                  |
+| E    | İş Mantığı       | istemciden gelen amount/sellerId/items, durum geçiş kuralları               |
+| F    | Rate Limiting    | login ve ödeme endpoint'lerinde limit aşımı (**her zaman en son çalışır**)  |
+| G    | Header'lar       | güvenlik header'ları, CORS, trust proxy ile rate-limit atlatma denemesi     |
 
 Herhangi bir test FAIL olursa script `exit code 1` ile çıkar (CI/CD'ye bağlanabilir).
 
@@ -1218,7 +1218,7 @@ doğrulanır; Luhn algoritması ve test kartı kontrolü ise sağlayıcı katman
 ödeme sağlayıcısının vereceği bir karardır. Bu ayrım kritiktir çünkü case study'nin
 başarısız ödeme senaryosunu temsil eden `4000000000000000` numarası **Luhn kontrolünden
 geçmez**. Luhn kontrolü Zod şemasında (formatta) yapılsaydı bu kart `422` ile (yanlış
-format) reddedilirdi; oysa amaç bu kartın *geçerli görünen ama banka tarafından reddedilen*
+format) reddedilirdi; oysa amaç bu kartın _geçerli görünen ama banka tarafından reddedilen_
 bir kartı simüle etmesidir. FakePay bu yüzden test kartlarını Luhn kontrolünden ÖNCE ele
 alır.
 
@@ -1265,7 +1265,7 @@ Yukarıdaki 9 kararın dışında, kod okuyarak fark edilmesi zor diğer noktala
   dallanmak (ör. "seller ise kendi ürünlerini, customer ise tüm aktif ürünleri göster") hem
   route mantığını hem yetkilendirmeyi bulanıklaştırırdı; ayrı yol, ayrı sorumluluk anlamına gelir.
 - **Sahiplik kontrolü, rol kontrolünden ayrı bir katmandır.** `authorize("seller")` yalnızca
-  isteği yapanın bir seller olduğunu doğrular, *bu spesifik ürünün* sahibi olduğunu
+  isteği yapanın bir seller olduğunu doğrular, _bu spesifik ürünün_ sahibi olduğunu
   doğrulamaz — bu ikinci kontrol service katmanında (`sellerId === req.user.id`) ayrıca
   yapılır; atlanırsa klasik bir IDOR açığı doğar.
 - **Fiyat `Number` tipinde saklanır** (`Decimal128` veya kuruş cinsinden tam sayı değil) —
@@ -1320,26 +1320,26 @@ Yukarıdaki 9 kararın dışında, kod okuyarak fark edilmesi zor diğer noktala
 
 ## Komut Referansı
 
-| Komut                  | Açıklama                                                          | Dizin      |
-| ------------------------ | ---------------------------------------------------------------------- | ----------- |
-| `npm run dev`            | Geliştirme sunucusunu başlatır (tsx watch)                              | `backend`  |
-| `npm run build`          | TypeScript'i `dist/`'e derler                                          | `backend`  |
-| `npm run start`          | Derlenmiş build'i çalıştırır (`dist/server.js`)                        | `backend`  |
-| `npm run typecheck`      | Tip kontrolü yapar, dosya üretmez (`tsc --noEmit`)                      | `backend`  |
-| `npm run lint`           | ESLint çalıştırır                                                       | `backend`  |
-| `npm run lint:fix`       | ESLint'i otomatik düzeltmeyle çalıştırır                                | `backend`  |
-| `npm run format`         | Prettier ile `src/**/*.ts`'i biçimlendirir                              | `backend`  |
-| `npm run seed`           | Örnek veri yükler (idempotent)                                          | `backend`  |
-| `npm run seed:reset`     | Seed verisini temizleyip sıfırdan yükler                                | `backend`  |
-| `npm run sync-indexes`   | Mongoose şema indekslerini veritabanıyla senkronize eder                | `backend`  |
-| `npm run audit:security` | 30 testlik otomatik güvenlik denetimini çalıştırır (sunucu ayakta olmalı) | `backend`  |
-| `npm run docs:export`    | OpenAPI dokümanını `docs/openapi.json`'a yeniden üretir                 | `backend`  |
-| `npm run dev`            | Vite geliştirme sunucusunu başlatır                                     | `frontend` |
-| `npm run build`          | Tip kontrolü + production build (`tsc -b && vite build`)                | `frontend` |
-| `npm run typecheck`      | Tip kontrolü yapar, dosya üretmez                                        | `frontend` |
-| `npm run lint`           | oxlint çalıştırır                                                        | `frontend` |
-| `npm run preview`        | Production build'ini yerelde önizler                                    | `frontend` |
-| `npx newman run docs/LocalShop.postman_collection.json -e docs/LocalShop.postman_environment.json` | Postman koleksiyonunu komut satırından çalıştırır | repo kökü |
+| Komut                                                                                              | Açıklama                                                                  | Dizin      |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------- |
+| `npm run dev`                                                                                      | Geliştirme sunucusunu başlatır (tsx watch)                                | `backend`  |
+| `npm run build`                                                                                    | TypeScript'i `dist/`'e derler                                             | `backend`  |
+| `npm run start`                                                                                    | Derlenmiş build'i çalıştırır (`dist/server.js`)                           | `backend`  |
+| `npm run typecheck`                                                                                | Tip kontrolü yapar, dosya üretmez (`tsc --noEmit`)                        | `backend`  |
+| `npm run lint`                                                                                     | ESLint çalıştırır                                                         | `backend`  |
+| `npm run lint:fix`                                                                                 | ESLint'i otomatik düzeltmeyle çalıştırır                                  | `backend`  |
+| `npm run format`                                                                                   | Prettier ile `src/**/*.ts`'i biçimlendirir                                | `backend`  |
+| `npm run seed`                                                                                     | Örnek veri yükler (idempotent)                                            | `backend`  |
+| `npm run seed:reset`                                                                               | Seed verisini temizleyip sıfırdan yükler                                  | `backend`  |
+| `npm run sync-indexes`                                                                             | Mongoose şema indekslerini veritabanıyla senkronize eder                  | `backend`  |
+| `npm run audit:security`                                                                           | 30 testlik otomatik güvenlik denetimini çalıştırır (sunucu ayakta olmalı) | `backend`  |
+| `npm run docs:export`                                                                              | OpenAPI dokümanını `docs/openapi.json`'a yeniden üretir                   | `backend`  |
+| `npm run dev`                                                                                      | Vite geliştirme sunucusunu başlatır                                       | `frontend` |
+| `npm run build`                                                                                    | Tip kontrolü + production build (`tsc -b && vite build`)                  | `frontend` |
+| `npm run typecheck`                                                                                | Tip kontrolü yapar, dosya üretmez                                         | `frontend` |
+| `npm run lint`                                                                                     | oxlint çalıştırır                                                         | `frontend` |
+| `npm run preview`                                                                                  | Production build'ini yerelde önizler                                      | `frontend` |
+| `npx newman run docs/LocalShop.postman_collection.json -e docs/LocalShop.postman_environment.json` | Postman koleksiyonunu komut satırından çalıştırır                         | repo kökü  |
 
 ## Proje Yapısı
 
